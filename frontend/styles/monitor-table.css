@@ -1,0 +1,124 @@
+/* ===== Add Bar ===== */
+.add-bar {
+  display: flex;
+  gap: 5px;
+  padding: 5px 7px;
+  background: #f5f6f8;
+  border-bottom: 1px solid #cdd0d6;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.add-bar input {
+  flex: 1;
+  min-width: 200px;
+  background: #fff;
+  border: 1px solid #b0b8c4;
+  border-radius: 3px;
+  padding: 3px 7px;
+  color: #1e1e1e;
+  font-size: 12px;
+  outline: none;
+}
+.add-bar input:focus { border-color: #2d5fa8; box-shadow: 0 0 0 2px #2d5fa820; }
+.add-bar button {
+  padding: 3px 12px;
+  background: #2d5fa8;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+  transition: background 0.12s;
+}
+.add-bar button:hover  { background: #1e4a8a; }
+.add-bar button.btn-danger { background: #c0392b; }
+.add-bar button.btn-danger:hover { background: #a93226; }
+
+/* ===== Table Wrapper ===== */
+.table-wrapper { overflow: auto; flex: 1; }
+
+/* ===== Monitor Table ===== */
+#monitor-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 0;
+  font-size: 12px;
+  table-layout: fixed;
+}
+#monitor-table th {
+  background: #e8ecf0;
+  color: #3a4553;
+  padding: 5px 10px;
+  text-align: left;
+  border-right: 1px solid #cdd0d6;
+  border-bottom: 2px solid #b0b8c4;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 11px;
+  overflow: hidden;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+#monitor-table th:last-child { border-right: none; }
+
+.col-resize-handle {
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  z-index: 2;
+  background: rgba(45, 95, 168, 0.08);
+  border-left: 1px solid rgba(45, 95, 168, 0.16);
+}
+.col-resize-handle:hover,
+.col-resize-handle.col-dragging { background: rgba(45, 95, 168, 0.25); opacity: 1; }
+
+#monitor-table td {
+  padding: 3px 10px;
+  border-right: 1px solid #e4e7eb;
+  border-bottom: 1px solid #e4e7eb;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 0;
+  color: #1e1e1e;
+}
+#monitor-table td:last-child { border-right: none; }
+#monitor-table tbody tr:nth-child(even) td { background: #f7f9fb; }
+#monitor-table tbody tr:hover td { background: #ddeeff !important; }
+
+#monitor-table td.cell-index  { color: #6b7280; text-align: center; font-size: 11px; }
+#monitor-table td.cell-nodeid { color: #1d4ed8; font-family: 'Consolas', monospace; font-size: 11px; }
+#monitor-table td.cell-name   { color: #1e1e1e; }
+#monitor-table td.cell-value  { color: #0a5c2e; font-family: 'Consolas', monospace; font-weight: 600; }
+#monitor-table td.cell-type   { color: #7c3aed; }
+#monitor-table td.cell-ts     { color: #4b5563; font-size: 11px; }
+#monitor-table td.cell-status { color: #4b5563; font-size: 11px; }
+
+#monitor-table td.cell-remove { text-align: center; padding: 0; border-right: none; }
+#monitor-table td.cell-remove button {
+  background: none; border: none; color: #9ca3af;
+  cursor: pointer; font-size: 12px; padding: 2px 6px; border-radius: 2px; line-height: 1;
+}
+#monitor-table td.cell-remove button:hover { color: #c0392b; background: #fde8e8; }
+#monitor-table tr.row-updated td { transition: background 0.08s; background: #d1fae5 !important; }
+
+/* Indicate dblclick availability on all rows */
+#monitor-table tbody tr { cursor: pointer; }
+#monitor-table td.cell-remove { cursor: default; }
+
+/* ===== IndexRange badge in NodeID cell ===== */
+.cell-ir-badge {
+  font-size: 9px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  padding: 1px 5px;
+  border-radius: 2px;
+  margin-left: 5px;
+  font-family: 'Consolas', monospace;
+  vertical-align: middle;
+  display: inline-block;
+  font-weight: 700;
+}

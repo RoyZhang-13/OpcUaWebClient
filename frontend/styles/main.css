@@ -1,0 +1,10 @@
+/* ===================================================
+   OPC UA Web Client — Stylesheet entry point
+   Imports are ordered to preserve the original cascade.
+   =================================================== */
+@import "./base.css";
+@import "./layout.css";
+@import "./monitor-table.css";
+@import "./tree.css";
+@import "./context-menu.css";
+@import "./dialogs.css";

@@ -1,0 +1,192 @@
+/* ===== Modal Dialog ===== */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0,0,0,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dialog-box {
+  background: #fff;
+  border: 1px solid #cdd0d6;
+  border-radius: 5px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  min-width: 440px;
+  max-width: 90vw;
+}
+.dialog-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: #2d5fa8;
+  padding: 8px 14px;
+  border-radius: 4px 4px 0 0;
+}
+.dialog-body { padding: 14px 14px 10px; }
+.dialog-label {
+  display: block;
+  font-size: 11px;
+  color: #4b5563;
+  margin-bottom: 5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.dialog-input {
+  width: 100%;
+  padding: 5px 9px;
+  border: 1px solid #b0b8c4;
+  border-radius: 3px;
+  font-size: 12px;
+  color: #1e1e1e;
+  outline: none;
+  font-family: 'Consolas', monospace;
+  background: #fff;
+}
+.dialog-input:focus { border-color: #2d5fa8; box-shadow: 0 0 0 2px #2d5fa820; }
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 8px 14px;
+  border-top: 1px solid #e4e7eb;
+  background: #f5f6f8;
+  border-radius: 0 0 4px 4px;
+}
+.dialog-btn {
+  padding: 4px 20px;
+  background: #2d5fa8;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.12s;
+}
+.dialog-btn:hover { background: #1e4a8a; }
+.dialog-btn-cancel {
+  background: #f5f6f8;
+  color: #4b5563;
+  border: 1px solid #b0b8c4;
+}
+.dialog-btn-cancel:hover { background: #e8ecf0; }
+
+/* ===== Value Detail Modal ===== */
+.value-detail-box {
+  min-width: 520px;
+  max-width: min(92vw, 860px);
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+}
+.value-detail-meta {
+  padding: 4px 14px;
+  font-size: 11px;
+  color: #1d4ed8;
+  font-family: 'Consolas', monospace;
+  background: #f0f4ff;
+  border-bottom: 1px solid #e4e7eb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.value-detail-body {
+  overflow: auto;
+  flex: 1;
+  min-height: 80px;
+}
+.array-count {
+  font-size: 11px;
+  color: #6b7280;
+  padding: 5px 10px 3px;
+  background: #f7f9fb;
+  border-bottom: 1px solid #e4e7eb;
+}
+.array-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  table-layout: fixed;
+}
+.array-table th {
+  background: #e8ecf0;
+  color: #3a4553;
+  padding: 5px 10px;
+  text-align: left;
+  border-bottom: 2px solid #b0b8c4;
+  font-weight: 600;
+  font-size: 11px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  min-width: 120px;
+  width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+}
+.array-table th:last-child {
+  width: auto;
+  min-width: 180px;
+}
+.array-table .col-resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  cursor: col-resize;
+  z-index: 2;
+  background: rgba(45, 95, 168, 0.08);
+  border-left: 1px solid rgba(45, 95, 168, 0.16);
+}
+.array-table .col-resize-handle:hover,
+.array-table .col-resize-handle.col-dragging {
+  background: rgba(45, 95, 168, 0.25);
+  opacity: 1;
+}
+.array-table td { padding: 3px 10px; border-bottom: 1px solid #e4e7eb; }
+.array-table tbody tr:nth-child(even) td { background: #f7f9fb; }
+.array-table tbody tr:hover td { background: #ddeeff; }
+.array-idx { color: #6b7280; text-align: right; font-family: 'Consolas', monospace; width: 70px; }
+.array-val { color: #0a5c2e; font-family: 'Consolas', monospace; font-weight: 600; }
+
+/* ===== Array Viewer — Structured rows ===== */
+.array-elem-hdr td { background: #edf1f7 !important; }
+.array-idx-elem { color: #2d5fa8 !important; font-weight: 700; font-size: 12px; }
+.array-struct-label { color: #1e3a6e; font-weight: 700; font-family: 'Segoe UI', system-ui, sans-serif; }
+.array-field-row td { background: #fff; }
+.array-field-name {
+  padding-left: 32px !important;
+  color: #4b5563;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 11px;
+  border-left: 2px solid #d1d9e6;
+}
+.array-field-val { color: #0a5c2e; font-family: 'Consolas', monospace; font-weight: 600; }
+.value-detail-text {
+  padding: 12px 14px;
+  font-family: 'Consolas', monospace;
+  font-size: 12px;
+  color: #1e1e1e;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+}
+
+/* ===== Item Settings Dialog ===== */
+.settings-box { min-width: 440px; }
+.settings-check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #1e1e1e;
+  cursor: pointer;
+  user-select: none;
+}
+.settings-check-label input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; }
+.settings-hint { font-size: 10px; color: #9ca3af; margin-top: 5px; }

@@ -1,0 +1,23 @@
+/* ===== Context Menu ===== */
+.ctx-menu {
+  position: fixed;
+  z-index: 9999;
+  background: #fff;
+  border: 1px solid #cdd0d6;
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  min-width: 180px;
+  padding: 4px 0;
+  font-size: 12px;
+}
+.ctx-item {
+  padding: 6px 16px;
+  cursor: pointer;
+  color: #1e1e1e;
+  white-space: nowrap;
+  user-select: none;
+}
+.ctx-item:hover { background: #eef4ff; color: #2d5fa8; }
+.ctx-item-danger { color: #c0392b; }
+.ctx-item-danger:hover { background: #fde8e8; color: #a93226; }
+.ctx-separator { border-top: 1px solid #e4e7eb; margin: 4px 0; }

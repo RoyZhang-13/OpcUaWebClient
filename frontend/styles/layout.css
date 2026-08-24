@@ -1,0 +1,232 @@
+/* ===== Header ===== */
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  height: 38px;
+  background: #2d5fa8;
+  border-bottom: 1px solid #1e4a8a;
+  flex-shrink: 0;
+}
+header h1 { font-size: 13px; font-weight: 600; color: #fff; letter-spacing: 0.02em; }
+
+/* ===== Status Badge ===== */
+.badge {
+  padding: 2px 10px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.badge-disconnected { background: #c0392b; color: #fff; }
+.badge-connected    { background: #27ae60; color: #fff; }
+
+/* ===== Connection Panel ===== */
+#conn-panel {
+  background: #f5f6f8;
+  border-bottom: 1px solid #cdd0d6;
+  padding: 6px 10px;
+  flex-shrink: 0;
+}
+#conn-panel .form-row { margin-bottom: 0; }
+
+/* ===== Form Row ===== */
+.form-row {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.form-row input {
+  flex: 1;
+  min-width: 150px;
+  background: #fff;
+  border: 1px solid #b0b8c4;
+  border-radius: 3px;
+  padding: 3px 7px;
+  color: #1e1e1e;
+  font-size: 12px;
+  outline: none;
+}
+.form-row input:focus { border-color: #2d5fa8; box-shadow: 0 0 0 2px #2d5fa820; }
+.form-row button {
+  padding: 3px 14px;
+  background: #2d5fa8;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+  transition: background 0.12s;
+}
+.form-row button:hover  { background: #1e4a8a; }
+.form-row button:active { background: #163870; }
+
+/* ===== Main Grid ===== */
+#main-grid {
+  display: flex;
+  gap: 0;
+  padding: 6px;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ===== Browser Panel (left) ===== */
+#browser-panel {
+  width: 280px;
+  min-width: 120px;
+  max-width: 60%;
+  flex-shrink: 0;
+  background: #fff;
+  border: 1px solid #cdd0d6;
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.panel-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: #2d5fa8;
+  padding: 4px 8px;
+  flex-shrink: 0;
+}
+#node-tree {
+  overflow-y: auto;
+  flex: 1;
+  padding: 2px 0;
+}
+
+/* ===== Resize Handle ===== */
+#resize-handle {
+  width: 5px;
+  margin: 0 2px;
+  cursor: col-resize;
+  background: transparent;
+  flex-shrink: 0;
+  position: relative;
+}
+#resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 1px;
+  height: 48px;
+  background: #b0b8c4;
+  border-radius: 1px;
+  transition: background 0.15s, height 0.15s, width 0.15s;
+}
+#resize-handle:hover::after,
+#resize-handle.dragging::after {
+  background: #2d5fa8;
+  width: 2px;
+  height: 64px;
+}
+
+/* ===== Ops Panel (right) ===== */
+#ops-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+  background: #fff;
+  border: 1px solid #cdd0d6;
+  border-radius: 3px;
+}
+
+/* ===== Bottom Log Panel ===== */
+#log-panel {
+  margin: 0 6px 6px;
+  border: 1px solid #cdd0d6;
+  border-radius: 3px;
+  background: #fbfcfe;
+  flex-shrink: 0;
+  min-height: 96px;
+  height: 128px;
+  max-height: 50vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#log-resize-handle {
+  height: 8px;
+  cursor: ns-resize;
+  background: linear-gradient(to bottom, #dde3ec, #eef2f7);
+  border-bottom: 1px solid #d3d9e3;
+  flex-shrink: 0;
+}
+
+#log-resize-handle:hover,
+#log-resize-handle.dragging {
+  background: linear-gradient(to bottom, #c8d7f2, #dfe9fb);
+}
+
+.log-title-row {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  border-bottom: 1px solid #d9dde5;
+  background: #eef2f7;
+}
+
+.log-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #374151;
+}
+
+#btn-clear-log {
+  height: 20px;
+  border: 1px solid #b0b8c4;
+  background: #fff;
+  color: #4b5563;
+  border-radius: 2px;
+  padding: 0 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+#btn-clear-log:hover {
+  background: #f3f4f6;
+}
+
+#log-list {
+  flex: 1;
+  overflow: auto;
+  padding: 6px 8px;
+  font-family: 'Consolas', monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #334155;
+}
+
+.log-empty {
+  color: #9ca3af;
+}
+
+.log-entry {
+  padding: 2px 0;
+  border-bottom: 1px dashed #e5e7eb;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.log-entry:last-child {
+  border-bottom: none;
+}
+
+.log-entry-error {
+  color: #b42318;
+}

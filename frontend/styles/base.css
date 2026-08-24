@@ -1,0 +1,12 @@
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: #eaedf0;
+  color: #1e1e1e;
+  font-size: 12px;
+  min-height: 100vh;
+}
+
+#app { display: flex; flex-direction: column; height: 100vh; }
