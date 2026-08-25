@@ -26,6 +26,12 @@ import {
   refreshNodeAttributes,
   writeAttributeValue,
   viewNodeAttributeValue,
+  showSubscriptionSettings,
+  hideSubscriptionSettings,
+  applySubscriptionSettings,
+  showMonitoredItemSettings,
+  hideMonitoredItemSettings,
+  applyMonitoredItemSettings,
 } from "./dialogs.js";
 
 // ─── Connection ─────────────────────────────────────────
@@ -73,6 +79,12 @@ window.hideNodeAttributes = hideNodeAttributes;
 window.refreshNodeAttributes = refreshNodeAttributes;
 window.writeAttributeValue = writeAttributeValue;
 window.viewNodeAttributeValue = viewNodeAttributeValue;
+window.showSubscriptionSettings = showSubscriptionSettings;
+window.hideSubscriptionSettings = hideSubscriptionSettings;
+window.applySubscriptionSettings = applySubscriptionSettings;
+window.showMonitoredItemSettings = showMonitoredItemSettings;
+window.hideMonitoredItemSettings = hideMonitoredItemSettings;
+window.applyMonitoredItemSettings = applyMonitoredItemSettings;
 
 // ─── Init ───────────────────────────────────────────────
 (async () => {
@@ -165,8 +177,12 @@ window.viewNodeAttributeValue = viewNodeAttributeValue;
     document.getElementById("ctx-sep-attributes").style.display = hasRow ? "block" : "none";
     document.getElementById("ctx-item-settings").style.display = hasRow ? "block" : "none";
     document.getElementById("ctx-sep-settings").style.display = hasRow ? "block" : "none";
+    document.getElementById("ctx-item-monitored-item-settings").style.display = hasRow ? "block" : "none";
+    document.getElementById("ctx-sep-monitored-item-settings").style.display = hasRow ? "block" : "none";
     document.getElementById("ctx-item-add").style.display = "block";
     document.getElementById("ctx-sep-add").style.display = "block";
+    document.getElementById("ctx-item-subscription-settings").style.display = "block";
+    document.getElementById("ctx-sep-subscription-settings").style.display = "block";
     document.getElementById("ctx-item-clear").style.display = "block";
     showContextMenu(e.clientX, e.clientY);
   });
@@ -184,8 +200,12 @@ window.viewNodeAttributeValue = viewNodeAttributeValue;
     document.getElementById("ctx-sep-attributes").style.display = "none";
     document.getElementById("ctx-item-settings").style.display = "none";
     document.getElementById("ctx-sep-settings").style.display = "none";
+    document.getElementById("ctx-item-monitored-item-settings").style.display = "none";
+    document.getElementById("ctx-sep-monitored-item-settings").style.display = "none";
     document.getElementById("ctx-item-add").style.display = "none";
     document.getElementById("ctx-sep-add").style.display = "none";
+    document.getElementById("ctx-item-subscription-settings").style.display = "none";
+    document.getElementById("ctx-sep-subscription-settings").style.display = "none";
     document.getElementById("ctx-item-clear").style.display = "none";
     showContextMenu(e.clientX, e.clientY);
   });

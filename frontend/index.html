@@ -74,8 +74,12 @@
     <div id="ctx-sep-attributes" class="ctx-separator" style="display:none"></div>
     <div id="ctx-item-settings" class="ctx-item" style="display:none" onclick="showSettings()">Index Range…</div>
     <div id="ctx-sep-settings" class="ctx-separator" style="display:none"></div>
+    <div id="ctx-item-monitored-item-settings" class="ctx-item" style="display:none" onclick="showMonitoredItemSettings()">Monitored Item Settings…</div>
+    <div id="ctx-sep-monitored-item-settings" class="ctx-separator" style="display:none"></div>
     <div id="ctx-item-add" class="ctx-item" onclick="showAddDialog()">Add Monitor Item…</div>
     <div id="ctx-sep-add" class="ctx-separator"></div>
+    <div id="ctx-item-subscription-settings" class="ctx-item" style="display:none" onclick="showSubscriptionSettings()">Subscription Settings…</div>
+    <div id="ctx-sep-subscription-settings" class="ctx-separator" style="display:none"></div>
     <div id="ctx-item-clear" class="ctx-item ctx-item-danger" onclick="clearAllMonitored()">Clear All</div>
   </div>
 
@@ -115,6 +119,98 @@
       <div class="dialog-footer">
         <button class="dialog-btn" onclick="applySettings()">Apply</button>
         <button class="dialog-btn dialog-btn-cancel" onclick="hideSettings()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Monitored Item Settings Dialog -->
+  <div id="monitored-item-settings-overlay" class="dialog-overlay" style="display:none">
+    <div class="dialog-box settings-box subscription-settings-box">
+      <div class="dialog-title">Monitored Item Settings</div>
+      <div class="dialog-body">
+        <div class="dialog-field-row">
+          <label class="dialog-label">Node Id:</label>
+          <input id="mi-settings-node-id" type="text" class="dialog-input dialog-input-disabled" readonly disabled />
+        </div>
+        <div class="dialog-field-row">
+          <label class="dialog-label">Sampling Interval (ms):</label>
+          <input id="mi-settings-sampling-interval" type="number" min="0" step="1" class="dialog-input" />
+        </div>
+        <div class="dialog-field-row">
+          <label class="dialog-label">Queue Size:</label>
+          <input id="mi-settings-queue-size" type="number" min="0" step="1" class="dialog-input" value="1" />
+        </div>
+        <div class="dialog-field-row">
+          <label class="dialog-label">Discard Oldest:</label>
+          <input type="checkbox" id="mi-settings-discard-oldest" class="dialog-checkbox">
+        </div>
+        <div class="dialog-field-row">
+          <label class="dialog-label">Monitoring Mode:</label>
+          <select id="mi-settings-monitoring-mode" class="dialog-input">
+            <option value="Disabled">Disabled</option>
+            <option value="Sampling">Sampling</option>
+            <option value="Reporting">Reporting</option>
+          </select>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="dialog-btn" onclick="applyMonitoredItemSettings()">Apply</button>
+        <button class="dialog-btn dialog-btn-cancel" onclick="hideMonitoredItemSettings()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Subscription Settings Dialog -->
+  <div id="subscription-settings-overlay" class="dialog-overlay" style="display:none">
+    <div class="dialog-box settings-box subscription-settings-box">
+      <div class="dialog-title">Subscription Settings</div>
+      <div class="dialog-body">
+        <div class="dialog-field-row">
+          <label class="dialog-label">Subscription Name:</label>
+          <input id="sub-settings-name" type="text" class="dialog-input" />
+        </div>
+        <div class="dialog-field-row">
+          <label class="dialog-label">Subscription Id:</label>
+          <input id="sub-settings-id" type="text" class="dialog-input dialog-input-disabled" readonly disabled />
+        </div>
+        <div class="dialog-field-row">
+          <label class="dialog-label">Publishing Interval (ms):</label>
+          <input id="sub-settings-publishing-interval" type="number" min="0" step="1" class="dialog-input" />
+        </div>
+        <div class="dialog-field-row">
+          <label class="dialog-label">Keep Alive Count:</label>
+          <input id="sub-settings-keep-alive-count" type="number" min="0" step="1" class="dialog-input" />
+        </div>
+        <div class="dialog-field-row">
+          <label class="dialog-label">Lifetime Count:</label>
+          <input id="sub-settings-lifetime-count" type="number" min="0" step="1" class="dialog-input" />
+        </div>
+        <div class="dialog-field-row">
+          <label class="dialog-label">Max Notifications per Publish:</label>
+          <input id="sub-settings-max-notifications" type="number" min="0" step="1" class="dialog-input" />
+        </div>
+        <div class="dialog-field-row">
+          <label class="dialog-label">Priority:</label>
+          <input id="sub-settings-priority" type="number" min="0" max="255" step="1" class="dialog-input" />
+        </div>
+        <div class="dialog-field-row">
+          <label class="dialog-label">Timestamps To Return:</label>
+          <select id="sub-settings-timestamps" class="dialog-input">
+            <option value="Source">Source</option>
+            <option value="Server">Server</option>
+            <option value="Both">Both</option>
+            <option value="Neither">Neither</option>
+            <option value="Invalid">Invalid</option>
+          </select>
+        </div>
+        <div class="dialog-field-row">
+          <label class="dialog-label">Publishing Enabled:</label>
+          <input type="checkbox" id="sub-settings-publishing-enabled" class="dialog-checkbox">
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="dialog-btn" onclick="applySubscriptionSettings()">Apply</button>
+        <button class="dialog-btn dialog-btn-cancel" onclick="hideSubscriptionSettings()">Cancel</button>
       </div>
     </div>
   </div>

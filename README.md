@@ -7,9 +7,12 @@ This project is a web-based OPC UA client that supports most of the core feature
 
 - Connect / disconnect OPC UA Server
 - Address space browsing (tree expansion)
-- Subscribe to node changes (real-time push via WebSocket)
+- Subscribe to node changes
 - IndexRange subscription (right-click menu → Item Settings, supports `n`, `n:m`, `n:m,n:m` formats)
 - Read/Write node attributes (right-click → Read/Write Attributes…), with a structured, hierarchical editor for scalars, arrays (including multi-dimensional arrays), and structured/nested values (e.g. custom structs, `NodeId`, `QualifiedName`, `LocalizedText`)
+- Subscription Settings (right-click → Subscription Settings…), configure the OPC UA subscription's Publishing Interval, Keep Alive Count, Lifetime Count, Max Notifications per Publish, Priority, Timestamps To Return and Publishing Enabled
+- Monitored Item Settings (right-click a monitored row → Monitored Item Settings…), configure a single monitored item's Sampling Interval, Queue Size, Discard Oldest and Monitoring Mode
+- Auto-resubscribe: monitored items are automatically re-subscribed after a disconnect/reconnect cycle
 
 ## Usage Guide
 
@@ -59,7 +62,33 @@ Every node (in the address space tree, or already added to the monitor table) ha
    - Read-only fields (e.g. `NodeId` sub-fields) are shown but cannot be edited.
 4. Click **Refresh** to reload the current attribute values from the server.
 
-### 6. Remove monitored items
+### 6. Subscription Settings
+
+The monitor table is backed by a single shared OPC UA subscription. You can configure its parameters directly:
+
+1. Right-click anywhere on the monitor table (row or empty area), then choose **Subscription Settings…**.
+2. The dialog shows the current subscription configuration:
+   - **Subscription Name** — a client-side-only label for display purposes (not part of the OPC UA protocol).
+   - **Subscription Id** — read-only, assigned by the server once the subscription is created.
+   - **Publishing Interval (ms)**, **Keep Alive Count**, **Lifetime Count**, **Max Notifications per Publish**, **Priority** — standard OPC UA subscription parameters; editable at any time.
+   - **Timestamps To Return** — `Source` / `Server` / `Both` / `Neither` / `Invalid`, applied to newly created monitored items.
+   - **Publishing Enabled** — toggles whether the subscription delivers notifications.
+3. Click **Apply**. If a subscription is already active, it is updated in place (via the OPC UA `ModifySubscription` / `SetPublishingMode` services) and the server's revised values are shown back; otherwise the settings are stored and used the next time an item is subscribed.
+
+### 7. Monitored Item Settings
+
+Each monitored item can also be reconfigured individually, independent of the shared subscription's settings:
+
+1. Right-click a row in the monitor table, then choose **Monitored Item Settings…**.
+2. The dialog shows the item's current configuration:
+   - **Node Id** — read-only, identifies the monitored node.
+   - **Sampling Interval (ms)** — how often the server samples the value.
+   - **Queue Size** — number of queued notifications per publish (default `1`).
+   - **Discard Oldest** — whether the oldest queued value is discarded when the queue is full.
+   - **Monitoring Mode** — `Disabled` / `Sampling` / `Reporting`.
+3. Click **Apply**. Sampling Interval, Queue Size and Discard Oldest are updated via the OPC UA `ModifyMonitoredItems` service (the server's revised values are shown back); Monitoring Mode is updated via `SetMonitoringMode`, applied only to this item.
+
+### 8. Remove monitored items
 
 - Click the ✕ icon at the end of a row to remove a single item.
 - Right-click → **Clear All** removes every monitored item at once.

@@ -89,6 +89,102 @@ export async function applySettings() {
   }
 }
 
+// ─── Monitored Item Setting ──────────────────────────────
+export async function showMonitoredItemSettings() {
+  hideContextMenu();
+  const seq = state.ctxTargetSeq;
+  if (seq == null || !state.monitored.has(seq)) return;
+  const res = await apiFetch(`/api/monitored_item_settings?seq=${seq}`);
+  if (!res || res.error) {
+    appendLog(`Failed to load monitored item settings: ${res?.error || "unknown error"}`, "error");
+    return;
+  }
+  const overlay = document.getElementById("monitored-item-settings-overlay");
+  overlay.dataset.seq = seq;
+  document.getElementById("mi-settings-node-id").value = res.node_id ?? "";
+  document.getElementById("mi-settings-sampling-interval").value = res.sampling_interval ?? "";
+  document.getElementById("mi-settings-queue-size").value = res.queue_size ?? 1;
+  document.getElementById("mi-settings-discard-oldest").checked = !!res.discard_oldest;
+  document.getElementById("mi-settings-monitoring-mode").value = res.monitoring_mode ?? "Reporting";
+  overlay.style.display = "flex";
+}
+
+export function hideMonitoredItemSettings() {
+  document.getElementById("monitored-item-settings-overlay").style.display = "none";
+}
+
+export async function applyMonitoredItemSettings() {
+  const overlay = document.getElementById("monitored-item-settings-overlay");
+  const seq = parseInt(overlay.dataset.seq, 10);
+  const payload = {
+    seq,
+    sampling_interval: parseFloat(document.getElementById("mi-settings-sampling-interval").value),
+    queue_size: parseInt(document.getElementById("mi-settings-queue-size").value, 10),
+    discard_oldest: document.getElementById("mi-settings-discard-oldest").checked,
+    monitoring_mode: document.getElementById("mi-settings-monitoring-mode").value,
+  };
+  if (Number.isNaN(payload.sampling_interval)) payload.sampling_interval = null;
+  if (Number.isNaN(payload.queue_size)) payload.queue_size = null;
+  const res = await apiFetch("/api/monitored_item_settings", "POST", payload);
+  if (!res || res.error) {
+    appendLog(`Failed to update monitored item settings: ${res?.error || "unknown error"}`, "error");
+    return;
+  }
+  appendLog(`Monitored item settings updated: ${res.node_id}`, "info");
+  hideMonitoredItemSettings();
+}
+
+// ─── Subscription Setting ────────────────────────────────
+export async function showSubscriptionSettings() {
+  hideContextMenu();
+  const res = await apiFetch("/api/subscription_settings");
+  if (!res || res.error) {
+    appendLog(`Failed to load subscription settings: ${res?.error || "unknown error"}`, "error");
+    return;
+  }
+  document.getElementById("sub-settings-name").value = res.name ?? "";
+  document.getElementById("sub-settings-id").value = res.subscription_id ?? "(not active)";
+  document.getElementById("sub-settings-publishing-interval").value = res.publishing_interval ?? "";
+  document.getElementById("sub-settings-keep-alive-count").value = res.keep_alive_count ?? "";
+  document.getElementById("sub-settings-lifetime-count").value = res.lifetime_count ?? "";
+  document.getElementById("sub-settings-max-notifications").value = res.max_notifications_per_publish ?? "";
+  document.getElementById("sub-settings-priority").value = res.priority ?? "";
+  document.getElementById("sub-settings-timestamps").value = res.timestamps_to_return ?? "";
+  document.getElementById("sub-settings-publishing-enabled").checked = !!res.publishing_enabled;
+  document.getElementById("subscription-settings-overlay").style.display = "flex";
+}
+
+export function hideSubscriptionSettings() {
+  document.getElementById("subscription-settings-overlay").style.display = "none";
+}
+
+export async function applySubscriptionSettings() {
+  const payload = {
+    name: document.getElementById("sub-settings-name").value.trim() || null,
+    publishing_interval: parseFloat(document.getElementById("sub-settings-publishing-interval").value),
+    keep_alive_count: parseInt(document.getElementById("sub-settings-keep-alive-count").value, 10),
+    lifetime_count: parseInt(document.getElementById("sub-settings-lifetime-count").value, 10),
+    max_notifications_per_publish: parseInt(document.getElementById("sub-settings-max-notifications").value, 10),
+    priority: parseInt(document.getElementById("sub-settings-priority").value, 10),
+    timestamps_to_return: document.getElementById("sub-settings-timestamps").value.trim() || null,
+    publishing_enabled: document.getElementById("sub-settings-publishing-enabled").checked,
+  };
+  for (const key of ["publishing_interval", "keep_alive_count", "lifetime_count", "max_notifications_per_publish", "priority"]) {
+    if (Number.isNaN(payload[key])) payload[key] = null;
+  }
+  const res = await apiFetch("/api/subscription_settings", "POST", payload);
+  if (!res || res.error) {
+    appendLog(`Failed to update subscription settings: ${res?.error || "unknown error"}`, "error");
+    return;
+  }
+  document.getElementById("sub-settings-id").value = res.subscription_id ?? "(not active)";
+  document.getElementById("sub-settings-publishing-interval").value = res.publishing_interval ?? "";
+  document.getElementById("sub-settings-keep-alive-count").value = res.keep_alive_count ?? "";
+  document.getElementById("sub-settings-lifetime-count").value = res.lifetime_count ?? "";
+  appendLog("Subscription settings updated", "info");
+  hideSubscriptionSettings();
+}
+
 // ─── Node Attributes (Read/Write) ───────────────────────
 let lastAttributesValueRaw = null;
 

@@ -25,6 +25,8 @@
   border-radius: 4px 4px 0 0;
 }
 .dialog-body { padding: 14px 14px 10px; }
+.dialog-field-row { margin-bottom: 10px; }
+.subscription-settings-box .dialog-label { text-transform: none; letter-spacing: normal; }
 .dialog-label {
   display: block;
   font-size: 11px;
@@ -44,6 +46,12 @@
   outline: none;
   font-family: 'Consolas', monospace;
   background: #fff;
+}
+.dialog-input.dialog-input-disabled,
+.dialog-input:disabled {
+  background: #e9ecef;
+  color: #6b7280;
+  cursor: not-allowed;
 }
 .dialog-input:focus { border-color: #2d5fa8; box-shadow: 0 0 0 2px #2d5fa820; }
 .dialog-footer {
@@ -199,6 +207,31 @@
 }
 .settings-check-label input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; }
 .settings-hint { font-size: 10px; color: #9ca3af; margin-top: 5px; }
+
+/* ===== Subscription Settings Dialog ===== */
+.subscription-settings-box {
+  min-width: 520px;
+}
+.subscription-settings-box .dialog-field-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.subscription-settings-box .dialog-label {
+  width: 190px;
+  flex-shrink: 0;
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+.subscription-settings-box .dialog-input {
+  flex: 1;
+  width: auto;
+}
+.subscription-settings-box .dialog-checkbox {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
 
 /* ===== Node Attributes Dialog ===== */
 .attributes-box {

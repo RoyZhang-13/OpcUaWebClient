@@ -299,6 +299,100 @@ async def _get_node(node_id: str) -> Node:
     return state.client.get_node(node_id)
 
 
+async def _create_monitored_item_with_timestamps(
+    sub, mir: ua.MonitoredItemCreateRequest, timestamps_to_return: str
+) -> int | ua.StatusCode:
+    """
+    Low-level replacement for `Subscription.create_monitored_items()` that allows
+    overriding `TimestampsToReturn` (hardcoded to `Both` in asyncua's high-level
+    helper). Replicates that method's internal bookkeeping so notification
+    routing and unsubscribe keep working normally.
+    """
+    from asyncua.common.subscription import SubscriptionItemData
+
+    try:
+        ts = ua.TimestampsToReturn[timestamps_to_return]
+    except KeyError:
+        ts = ua.TimestampsToReturn.Both
+
+    params = ua.CreateMonitoredItemsParameters()
+    params.SubscriptionId = sub.subscription_id
+    params.ItemsToCreate = [mir]
+    params.TimestampsToReturn = ts
+
+    data = SubscriptionItemData()
+    data.client_handle = mir.RequestedParameters.ClientHandle
+    data.node = Node(sub.server, mir.ItemToMonitor.NodeId)
+    data.attribute = mir.ItemToMonitor.AttributeId
+    data.mfilter = mir.RequestedParameters.Filter
+    data.queuesize = mir.RequestedParameters.QueueSize
+    data.monitoring_mode = mir.MonitoringMode
+    data.sampling_interval = mir.RequestedParameters.SamplingInterval
+    sub._monitored_items[mir.RequestedParameters.ClientHandle] = data
+
+    results = await sub.server.create_monitored_items(params)
+    result = results[0]
+    if not result.StatusCode.is_good():
+        del sub._monitored_items[mir.RequestedParameters.ClientHandle]
+        return result.StatusCode
+    data.server_handle = result.MonitoredItemId
+    return result.MonitoredItemId
+
+
+async def _modify_monitored_item_full(
+    sub,
+    server_handle: int,
+    client_handle: int,
+    sampling_interval: float,
+    queue_size: int,
+    discard_oldest: bool,
+) -> ua.MonitoredItemModifyResult:
+    """
+    Low-level replacement for `Subscription.modify_monitored_item()` that also
+    allows overriding `DiscardOldest` (not exposed by asyncua's high-level helper).
+    """
+    mparams = ua.MonitoringParameters()
+    mparams.ClientHandle = client_handle
+    mparams.SamplingInterval = sampling_interval
+    mparams.QueueSize = queue_size
+    mparams.DiscardOldest = discard_oldest
+    item = sub._monitored_items.get(client_handle)
+    if item is not None:
+        mparams.Filter = item.mfilter
+
+    modif_item = ua.MonitoredItemModifyRequest()
+    modif_item.MonitoredItemId = server_handle
+    modif_item.RequestedParameters = mparams
+
+    params = ua.ModifyMonitoredItemsParameters()
+    params.SubscriptionId = sub.subscription_id
+    params.ItemsToModify = [modif_item]
+
+    results = await sub.server.modify_monitored_items(params)
+    result = results[0]
+    if result.StatusCode.is_good() and item is not None:
+        item.sampling_interval = sampling_interval
+        item.queuesize = queue_size
+    return result
+
+
+async def _set_monitoring_mode_for_item(sub, server_handle: int, mode: str) -> ua.StatusCode:
+    """Set the monitoring mode for a single monitored item (not the whole subscription)."""
+    monitoring_mode = ua.MonitoringMode[mode]
+    params = ua.SetMonitoringModeParameters()
+    params.SubscriptionId = sub.subscription_id
+    params.MonitoredItemIds = [server_handle]
+    params.MonitoringMode = monitoring_mode
+    results = await sub.server.set_monitoring_mode(params)
+    result = results[0]
+    if result.is_good():
+        for item in sub._monitored_items.values():
+            if item.server_handle == server_handle:
+                item.monitoring_mode = monitoring_mode
+                break
+    return result
+
+
 async def _browse_children(node: Node) -> list[dict]:
     children = []
     try:
