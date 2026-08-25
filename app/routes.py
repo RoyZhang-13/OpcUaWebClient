@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import Optional
+from typing import Any, Optional
 
 from asyncua import Client, ua
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
@@ -11,9 +11,13 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app.opcua import (
+    _apply_edited_value,
     _browse_children,
+    _coerce_value_for_write,
     _fmt_ts,
     _get_node,
+    _is_complex_value,
+    _read_node_attributes,
     _res,
     _resolve_data_type_name,
     _safe_value_repr,
@@ -35,6 +39,11 @@ class WriteRequest(BaseModel):
     node_id: str
     value: str
     data_type: str = "auto"
+
+
+class WriteStructuredRequest(BaseModel):
+    node_id: str
+    value: Any
 
 
 class SubscribeRequest(BaseModel):
@@ -123,6 +132,15 @@ def create_app() -> FastAPI:
         except Exception as e:
             return {"error": str(e)}
 
+    @app.get("/api/node_attributes")
+    async def node_attributes(node_id: str):
+        if not state.connected:
+            return {"error": "Not connected"}
+        try:
+            return await _read_node_attributes(node_id)
+        except Exception as e:
+            return {"error": str(e)}
+
     @app.get("/api/read")
     async def read_node(node_id: str):
         if not state.connected:
@@ -173,7 +191,7 @@ def create_app() -> FastAPI:
                 "node_id": node_id,
                 "display_name": display_name,
                 "value": _safe_value_repr(value),
-                "value_raw": _serialize_value(value) if isinstance(value, (list, tuple)) else None,
+                "value_raw": _serialize_value(value) if isinstance(value, (list, tuple)) or _is_complex_value(value) else None,
                 "data_type": data_type,
                 "source_timestamp": source_ts,
                 "server_timestamp": server_ts,
@@ -191,15 +209,46 @@ def create_app() -> FastAPI:
             current_dv = await node.read_data_value()
             current_val = current_dv.Value.Value
             if req.data_type == "auto" and current_val is not None:
-                target_type = type(current_val)
-                try:
-                    new_val = target_type(req.value)
-                except (ValueError, TypeError):
-                    new_val = req.value
+                new_val = _coerce_value_for_write(req.value, current_val)
             else:
                 new_val = req.value
-            await node.write_value(new_val)
+            variant_type = None
+            try:
+                variant_type = current_dv.Value.VariantType
+            except Exception:
+                pass
+            # Build a DataValue with only Value set (no timestamps/status). Some
+            # servers reply BadWriteNotSupported if timestamps are included, which
+            # asyncua's write_value() does by default (SourceTimestamp=now()).
+            await node.write_value(ua.DataValue(ua.Variant(new_val, variant_type)))
             return {"status": "ok", "node_id": req.node_id, "written_value": str(new_val)}
+        except Exception as e:
+            return {"error": str(e)}
+
+    @app.post("/api/write_structured")
+    async def write_structured_node(req: WriteStructuredRequest):
+        """Write a struct / array-of-structs value edited via the Array Viewer.
+
+        `req.value` mirrors the JSON tree produced by `_serialize_value` (as
+        returned in `value_raw`), with user-edited scalar leaves. The current
+        live value is read first and only edited leaves are applied on top of
+        it (via `_apply_edited_value`), so untouched/non-editable fields (e.g.
+        NodeId's synthetic keys) simply round-trip unchanged.
+        """
+        if not state.connected:
+            return {"error": "Not connected"}
+        try:
+            node = await _get_node(req.node_id)
+            current_dv = await node.read_data_value()
+            current_val = current_dv.Value.Value
+            new_val = _apply_edited_value(current_val, req.value)
+            variant_type = None
+            try:
+                variant_type = current_dv.Value.VariantType
+            except Exception:
+                pass
+            await node.write_value(ua.DataValue(ua.Variant(new_val, variant_type)))
+            return {"status": "ok", "node_id": req.node_id, "written_value": _safe_value_repr(new_val)}
         except Exception as e:
             return {"error": str(e)}
 

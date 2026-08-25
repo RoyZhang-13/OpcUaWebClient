@@ -70,11 +70,13 @@
 
   <!-- Context Menu -->
   <div id="ctx-menu" class="ctx-menu" style="display:none">
-    <div id="ctx-item-settings" class="ctx-item" style="display:none" onclick="showSettings()">Item Settings…</div>
+    <div id="ctx-item-attributes" class="ctx-item" style="display:none" onclick="showNodeAttributes()">Read/Write Attributes…</div>
+    <div id="ctx-sep-attributes" class="ctx-separator" style="display:none"></div>
+    <div id="ctx-item-settings" class="ctx-item" style="display:none" onclick="showSettings()">Index Range…</div>
     <div id="ctx-sep-settings" class="ctx-separator" style="display:none"></div>
-    <div class="ctx-item" onclick="showAddDialog()">Add Monitor Item…</div>
-    <div class="ctx-separator"></div>
-    <div class="ctx-item ctx-item-danger" onclick="clearAllMonitored()">Clear All</div>
+    <div id="ctx-item-add" class="ctx-item" onclick="showAddDialog()">Add Monitor Item…</div>
+    <div id="ctx-sep-add" class="ctx-separator"></div>
+    <div id="ctx-item-clear" class="ctx-item ctx-item-danger" onclick="clearAllMonitored()">Clear All</div>
   </div>
 
   <!-- Add Monitor Dialog -->
@@ -117,6 +119,24 @@
     </div>
   </div>
 
+  <!-- Node Attributes Dialog -->
+  <div id="attributes-overlay" class="dialog-overlay" style="display:none">
+    <div class="dialog-box attributes-box">
+      <div class="dialog-title">Node Attributes — <span id="attributes-node-name"></span></div>
+      <div class="value-detail-meta"><span id="attributes-nodeid"></span></div>
+      <div class="dialog-body">
+        <table class="attributes-table">
+          <tbody id="attributes-tbody"></tbody>
+        </table>
+        <div id="attributes-write-msg" class="settings-hint"></div>
+      </div>
+      <div class="dialog-footer">
+        <button class="dialog-btn dialog-btn-cancel" onclick="refreshNodeAttributes()">Refresh</button>
+        <button class="dialog-btn dialog-btn-cancel" onclick="hideNodeAttributes()">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Value Detail Modal -->
   <div id="value-detail-overlay" class="dialog-overlay" style="display:none">
     <div class="dialog-box value-detail-box">
@@ -125,7 +145,9 @@
       </div>
       <div class="value-detail-meta"><span id="value-detail-nodeid"></span></div>
       <div class="value-detail-body" id="value-detail-content"></div>
+      <div id="value-detail-write-msg" class="settings-hint"></div>
       <div class="dialog-footer">
+        <button class="dialog-btn" id="value-detail-write-btn" style="display:none" onclick="writeValueDetail()">Write</button>
         <button class="dialog-btn dialog-btn-cancel" onclick="hideValueDetail()">Close</button>
       </div>
     </div>

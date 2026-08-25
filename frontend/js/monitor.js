@@ -1,7 +1,7 @@
 import { apiFetch } from "./api.js";
 import { state, appendLog, syncDropHint } from "./state.js";
 import { hideContextMenu } from "./contextmenu.js";
-import { escapeHtml, flattenArrayEntries, renderArrayEntryRow, bindTableColumnResize } from "./utils.js";
+import { escapeHtml, flattenArrayEntries, renderArrayEntryRow, bindTableColumnResize, isEditableValue } from "./utils.js";
 
 // ─── Subscription creation ──────────────────────────────
 export async function createMonitorItem(seq, node_id, index_range = null, reason = "") {
@@ -132,26 +132,88 @@ export function updateTableRow(seq) {
 }
 
 // ─── Value Detail ────────────────────────────────────────
-export function showValueDetail(seq) {
-  const m = state.monitored.get(seq);
-  if (!m) return;
-  document.getElementById("value-detail-name").textContent = m.display_name || m.node_id;
-  document.getElementById("value-detail-nodeid").textContent = m.node_id;
+let currentDetailWrite = null;
+
+export function openValueDetailModal({ title, nodeid, valueRaw, plainText, writable = false, onWrite = null }) {
+  document.getElementById("value-detail-name").textContent = title || "";
+  document.getElementById("value-detail-nodeid").textContent = nodeid || "";
   const content = document.getElementById("value-detail-content");
-  if (Array.isArray(m.value_raw)) {
-    const entries = flattenArrayEntries(m.value_raw);
-    const topLevelCount = m.value_raw.length;
+  const msgEl = document.getElementById("value-detail-write-msg");
+  const writeBtn = document.getElementById("value-detail-write-btn");
+  if (msgEl) msgEl.textContent = "";
+  const isStruct = valueRaw && !Array.isArray(valueRaw) && valueRaw._type === "struct";
+  // Flat scalar arrays are always editable. Structs and arrays of structs are
+  // editable only for their scalar leaf fields, and only when the backend
+  // marked the struct type as safely round-trippable (see `editable` flag in
+  // `_serialize_element`, e.g. QualifiedName/LocalizedText/decoded custom
+  // structs — not NodeId or raw undecoded ExtensionObject).
+  const editable = writable && typeof onWrite === "function" && isEditableValue(valueRaw);
+  currentDetailWrite = editable ? { onWrite, valueRaw } : null;
+  if (writeBtn) writeBtn.style.display = editable ? "inline-block" : "none";
+  if (Array.isArray(valueRaw) || isStruct) {
+    const entries = flattenArrayEntries(valueRaw);
+    const countLabel = Array.isArray(valueRaw) ? `${valueRaw.length} element${valueRaw.length !== 1 ? "s" : ""}` : "1 struct";
     const html =
-      `<div class="array-count">${topLevelCount} element${topLevelCount !== 1 ? "s" : ""}</div>` +
+      `<div class="array-count">${countLabel}</div>` +
       '<table class="array-table"><thead><tr><th>Index / Field</th><th>Value</th></tr></thead><tbody>' +
-      entries.map((entry) => renderArrayEntryRow(entry)).join("") +
+      entries.map((entry) => renderArrayEntryRow(entry, editable)).join("") +
       "</tbody></table>";
     content.innerHTML = html;
     requestAnimationFrame(() => bindTableColumnResize(content.querySelector(".array-table")));
   } else {
-    content.innerHTML = `<pre class="value-detail-text">${escapeHtml(m.value)}</pre>`;
+    content.innerHTML = `<pre class="value-detail-text">${escapeHtml(plainText ?? "")}</pre>`;
   }
   document.getElementById("value-detail-overlay").style.display = "flex";
+}
+
+export async function writeValueDetail() {
+  if (!currentDetailWrite?.onWrite) return;
+  const edited = JSON.parse(JSON.stringify(currentDetailWrite.valueRaw));
+  const inputs = Array.from(document.querySelectorAll("#value-detail-content .array-val-input[data-path]"));
+  for (const el of inputs) {
+    let path;
+    try {
+      path = JSON.parse(el.dataset.path);
+    } catch {
+      continue;
+    }
+    if (!Array.isArray(path) || path.length === 0) continue;
+    let node = edited;
+    for (const seg of path.slice(0, -1)) {
+      node = typeof seg === "number" ? node?.[seg] : node?.fields?.[seg];
+    }
+    if (node == null) continue;
+    const lastSeg = path[path.length - 1];
+    const target = typeof lastSeg === "number" ? node[lastSeg] : node?.fields?.[lastSeg];
+    if (target && target._type === "scalar") {
+      target.value = el.value;
+    }
+  }
+  const msgEl = document.getElementById("value-detail-write-msg");
+  if (msgEl) {
+    msgEl.className = "settings-hint";
+    msgEl.textContent = "Writing…";
+  }
+  const result = await currentDetailWrite.onWrite(edited);
+  if (!msgEl) return;
+  if (result?.error) {
+    msgEl.className = "settings-hint attributes-msg-error";
+    msgEl.textContent = "Write failed: " + result.error;
+  } else {
+    msgEl.className = "settings-hint attributes-msg-ok";
+    msgEl.textContent = "Write succeeded.";
+  }
+}
+
+export function showValueDetail(seq) {
+  const m = state.monitored.get(seq);
+  if (!m) return;
+  openValueDetailModal({
+    title: m.display_name || m.node_id,
+    nodeid: m.node_id,
+    valueRaw: m.value_raw,
+    plainText: m.value,
+  });
 }
 
 export function hideValueDetail() {

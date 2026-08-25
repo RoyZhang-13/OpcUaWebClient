@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import os
@@ -74,7 +75,7 @@ class SharedSubHandler:
             "node_id": node_id,
             "display_name": display_name,
             "value": _safe_value_repr(val),
-            "value_raw": _serialize_value(val) if isinstance(val, (list, tuple)) else None,
+            "value_raw": _serialize_value(val) if isinstance(val, (list, tuple)) or _is_complex_value(val) else None,
             "data_type": data_type,
             "source_timestamp": src_ts,
             "server_timestamp": srv_ts,
@@ -133,7 +134,7 @@ def _serialize_element(v: Any) -> dict:
             decoded = _deserialize_extension_object(v)
             if decoded is not None:
                 return _serialize_element(decoded)
-            return {"_type": "struct", "_label": "ExtensionObject", "fields": {
+            return {"_type": "struct", "_label": "ExtensionObject", "editable": False, "fields": {
                 "TypeId": str(getattr(v, "TypeId", "")),
                 "Body": str(getattr(v, "Body", "")),
             }}
@@ -155,26 +156,29 @@ def _serialize_element(v: Any) -> dict:
                 id_type, id_key = "3 (Opaque)", "Opaque"
                 raw = v.Identifier
                 id_val = raw.hex().upper() if isinstance(raw, (bytes, bytearray)) else str(raw)
-            return {"_type": "struct", "_label": "NodeId", "fields": {
-                "NamespaceIndex": str(v.NamespaceIndex),
-                "IdentifierType": id_type,
-                id_key: id_val,
+            # NodeId fields don't map 1:1 to real attribute names (IdentifierType
+            # is synthetic, and the id_key varies), so round-tripping edits isn't
+            # safe — keep this struct read-only.
+            return {"_type": "struct", "_label": "NodeId", "editable": False, "fields": {
+                "NamespaceIndex": {"_type": "scalar", "value": str(v.NamespaceIndex)},
+                "IdentifierType": {"_type": "scalar", "value": id_type},
+                id_key: {"_type": "scalar", "value": id_val},
             }}
     except Exception:
         pass
     try:
         if isinstance(v, ua.QualifiedName):
-            return {"_type": "struct", "_label": "QualifiedName", "fields": {
-                "NamespaceIndex": str(v.NamespaceIndex),
-                "Name": str(v.Name or ""),
+            return {"_type": "struct", "_label": "QualifiedName", "editable": True, "fields": {
+                "NamespaceIndex": {"_type": "scalar", "value": str(v.NamespaceIndex)},
+                "Name": {"_type": "scalar", "value": str(v.Name or "")},
             }}
     except Exception:
         pass
     try:
         if isinstance(v, ua.LocalizedText):
-            return {"_type": "struct", "_label": "LocalizedText", "fields": {
-                "Locale": str(v.Locale or ""),
-                "Text": str(v.Text or ""),
+            return {"_type": "struct", "_label": "LocalizedText", "editable": True, "fields": {
+                "Locale": {"_type": "scalar", "value": str(v.Locale or "")},
+                "Text": {"_type": "scalar", "value": str(v.Text or "")},
             }}
     except Exception:
         pass
@@ -184,7 +188,7 @@ def _serialize_element(v: Any) -> dict:
             if k.startswith("_"):
                 continue
             fields[k] = _serialize_value(fv)
-        return {"_type": "struct", "_label": type(v).__name__, "fields": fields}
+        return {"_type": "struct", "_label": type(v).__name__, "editable": True, "fields": fields}
     return {"_type": "scalar", "value": str(v)}
 
 
@@ -324,14 +328,216 @@ async def reset_connection_state():
     state.shared_sub = None
 
 
+def _convert_scalar(raw: str, sample: Any) -> Any:
+    py_type = type(sample)
+    if py_type is bool:
+        return str(raw).strip().lower() in ("true", "1", "yes", "on")
+    try:
+        return py_type(raw)
+    except (ValueError, TypeError):
+        return raw
+
+
+def _coerce_value_for_write(raw: str, current_val: Any) -> Any:
+    """Convert a user-supplied string into a value matching the current node value's type.
+
+    Handles both scalars and 1-D arrays (rendered as e.g. "[0, 1, 2]").
+    """
+    text = str(raw).strip()
+    if isinstance(current_val, (list, tuple)):
+        inner = text
+        if inner.startswith("[") and inner.endswith("]"):
+            inner = inner[1:-1]
+        parts = [p.strip() for p in inner.split(",")] if inner.strip() else []
+        sample = current_val[0] if current_val else ""
+        return [_convert_scalar(p, sample) for p in parts]
+    return _convert_scalar(text, current_val)
+
+
+def _apply_edited_value(current: Any, edited: Any) -> Any:
+    """Rebuild a value matching `current`'s live Python/asyncua types, applying
+    user-edited scalar leaves from an edited value-tree shaped like the JSON
+    produced by `_serialize_value`/`_serialize_element` (i.e. the "Array Viewer"
+    structure sent back from the frontend).
+
+    Struct branches are deep-copied from `current` and only the fields present
+    in `edited["fields"]` are overwritten (via setattr); fields with no real
+    attribute counterpart (e.g. NodeId's synthetic keys) are silently skipped,
+    so non-editable structs simply round-trip unchanged.
+    """
+    if isinstance(edited, dict):
+        etype = edited.get("_type")
+        if etype == "scalar":
+            return _convert_scalar(str(edited.get("value", "")), current)
+        if etype == "struct":
+            fields = edited.get("fields") or {}
+            obj = copy.deepcopy(current)
+            for key, sub_edited in fields.items():
+                if not hasattr(obj, key):
+                    continue
+                try:
+                    sub_current = getattr(obj, key)
+                    setattr(obj, key, _apply_edited_value(sub_current, sub_edited))
+                except Exception:
+                    continue
+            return obj
+        return current
+    if isinstance(edited, list):
+        if isinstance(current, (list, tuple)):
+            result = []
+            for i, sub_edited in enumerate(edited):
+                sub_current = current[i] if i < len(current) else (current[0] if current else None)
+                result.append(_apply_edited_value(sub_current, sub_edited))
+            return result
+        return current
+    return current
+
+
+_COMMON_ATTRS = [
+    (ua.AttributeIds.NodeId, "NodeId"),
+    (ua.AttributeIds.NodeClass, "NodeClass"),
+    (ua.AttributeIds.BrowseName, "BrowseName"),
+    (ua.AttributeIds.DisplayName, "DisplayName"),
+    (ua.AttributeIds.Description, "Description"),
+    (ua.AttributeIds.WriteMask, "WriteMask"),
+    (ua.AttributeIds.UserWriteMask, "UserWriteMask"),
+]
+
+_VARIABLE_ATTRS = [
+    (ua.AttributeIds.Value, "Value"),
+    (ua.AttributeIds.DataType, "DataType"),
+    (ua.AttributeIds.ValueRank, "ValueRank"),
+    (ua.AttributeIds.ArrayDimensions, "ArrayDimensions"),
+    (ua.AttributeIds.AccessLevel, "AccessLevel"),
+    (ua.AttributeIds.UserAccessLevel, "UserAccessLevel"),
+    (ua.AttributeIds.MinimumSamplingInterval, "MinimumSamplingInterval"),
+    (ua.AttributeIds.Historizing, "Historizing"),
+]
+
+_OBJECT_ATTRS = [(ua.AttributeIds.EventNotifier, "EventNotifier")]
+
+_METHOD_ATTRS = [
+    (ua.AttributeIds.Executable, "Executable"),
+    (ua.AttributeIds.UserExecutable, "UserExecutable"),
+]
+
+
+async def _format_attribute_value(name: str, val: Any) -> str:
+    if val is None:
+        return ""
+    if name == "NodeId":
+        try:
+            return val.to_string()
+        except Exception:
+            return str(val)
+    if name == "NodeClass":
+        try:
+            return ua.NodeClass(val).name
+        except Exception:
+            return str(val)
+    if name == "BrowseName":
+        try:
+            return f"{val.NamespaceIndex}:{val.Name}"
+        except Exception:
+            return str(val)
+    if name in ("DisplayName", "Description"):
+        try:
+            return val.Text or ""
+        except Exception:
+            return str(val)
+    if name == "DataType":
+        try:
+            dt_node = state.client.get_node(val)
+            bn = await dt_node.read_browse_name()
+            if bn and getattr(bn, "Name", None):
+                return bn.Name
+        except Exception:
+            pass
+        try:
+            return val.to_string()
+        except Exception:
+            return str(val)
+    return _safe_value_repr(val)
+
+
+def _is_complex_value(val: Any) -> bool:
+    """True if val is (or contains) a struct/ExtensionObject/NodeId/etc, rather than
+    plain scalars, so the frontend can decide between inline text editing vs a
+    read-only structured viewer."""
+    if val is None or isinstance(val, (bool, int, float, str, bytes, bytearray)):
+        return False
+    if isinstance(val, (list, tuple)):
+        return any(_is_complex_value(v) for v in val)
+    return True
+
+
+async def _read_node_attributes(node_id: str) -> dict:
+    node = await _get_node(node_id)
+    display_name = ""
+    try:
+        display_name = (await node.read_display_name()).Text
+    except Exception:
+        pass
+
+    node_class: Optional[ua.NodeClass] = None
+    try:
+        node_class = await node.read_node_class()
+    except Exception:
+        pass
+
+    attrs_to_read = list(_COMMON_ATTRS)
+    if node_class == ua.NodeClass.Variable:
+        attrs_to_read += _VARIABLE_ATTRS
+    elif node_class == ua.NodeClass.Object:
+        attrs_to_read += _OBJECT_ATTRS
+    elif node_class == ua.NodeClass.Method:
+        attrs_to_read += _METHOD_ATTRS
+
+    attributes = []
+    writable = False
+    value_is_complex = False
+    value_raw = None
+    for attr_id, name in attrs_to_read:
+        try:
+            dv = await node.read_attribute(attr_id)
+            val = dv.Value.Value
+            display_val = await _format_attribute_value(name, val)
+            attributes.append({"name": name, "value": display_val})
+            if name == "Value":
+                writable = True
+                # Arrays (even of plain scalars) and struct-like values are all
+                # routed to the structured "Array Viewer" instead of the inline
+                # text input, since a single-line box is impractical for either.
+                value_is_complex = isinstance(val, (list, tuple)) or _is_complex_value(val)
+                if value_is_complex:
+                    value_raw = _serialize_value(val)
+        except Exception as e:
+            err = _status_code_from_error_text(str(e)) or "N/A"
+            attributes.append({"name": name, "value": "", "error": err})
+
+    return {
+        "node_id": node_id,
+        "display_name": display_name,
+        "node_class": node_class.name if node_class is not None else "",
+        "attributes": attributes,
+        "writable": writable,
+        "value_is_complex": value_is_complex,
+        "value_raw": value_raw,
+    }
+
+
 __all__ = [
     "Client",
     "Node",
     "SharedSubHandler",
+    "_apply_edited_value",
     "_broadcast",
     "_browse_children",
+    "_coerce_value_for_write",
     "_fmt_ts",
     "_get_node",
+    "_is_complex_value",
+    "_read_node_attributes",
     "_res",
     "_resolve_data_type_name",
     "_safe_value_repr",

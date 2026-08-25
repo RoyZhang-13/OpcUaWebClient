@@ -8,6 +8,8 @@ export const state = {
   monitorSeq: 0,
   // seq of the row that was most recently right-clicked
   ctxTargetSeq: null,
+  // tree node info { node_id, display_name, node_class } most recently right-clicked
+  ctxTargetTreeNode: null,
   // selected tree nodes for multi-select / drag
   selectedTreeNodes: new Map(),
   anchorTreeRow: null, // anchor for Shift-range selection

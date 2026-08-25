@@ -37,6 +37,8 @@ export function buildTreeNode(info, depth) {
   const row = document.createElement("div");
   row.className = "tree-node";
   row.dataset.nodeId = info.node_id;
+  row.dataset.displayName = info.display_name || info.browse_name || "";
+  row.dataset.nodeClass = info.node_class || "";
   row.dataset.expanded = "false";
 
   const expandIcon = document.createElement("span");

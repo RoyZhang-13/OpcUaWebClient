@@ -124,9 +124,9 @@ export function parseStructLikeString(text) {
   return { label, fields };
 }
 
-export function flattenArrayEntries(value, prefix = []) {
+export function flattenArrayEntries(value, displayPrefix = [], objPath = []) {
   const entries = [];
-  const indexText = prefix.join("") || "[]";
+  const indexText = displayPrefix.join("") || "[]";
 
   if (value == null) {
     entries.push({ kind: "scalar", index: indexText, value: "null" });
@@ -143,12 +143,13 @@ export function flattenArrayEntries(value, prefix = []) {
       }
       return entries;
     }
-    entries.push({ kind: "scalar", index: indexText, value: scalarText });
+    entries.push({ kind: "scalar", index: indexText, value: scalarText, path: objPath });
     return entries;
   }
 
   if (value && value._type === "struct") {
     const fields = value.fields || {};
+    const editableStruct = value.editable !== false;
     entries.push({ kind: "struct-header", index: indexText, value: value._label || "Struct" });
     for (const [key, inner] of Object.entries(fields)) {
       if (inner == null) {
@@ -156,7 +157,12 @@ export function flattenArrayEntries(value, prefix = []) {
         continue;
       }
       if (inner && inner._type === "scalar") {
-        entries.push({ kind: "struct-field", index: key, value: String(inner.value ?? "") });
+        entries.push({
+          kind: "struct-field",
+          index: key,
+          value: String(inner.value ?? ""),
+          path: editableStruct ? [...objPath, key] : undefined,
+        });
         continue;
       }
       entries.push({ kind: "struct-field", index: key, value: formatArrayDisplay(inner) });
@@ -166,23 +172,24 @@ export function flattenArrayEntries(value, prefix = []) {
 
   if (Array.isArray(value)) {
     value.forEach((item, idx) => {
-      const nextPrefix = [...prefix, `[${idx}]`];
+      const nextDisplayPrefix = [...displayPrefix, `[${idx}]`];
+      const nextObjPath = [...objPath, idx];
       if (item == null) {
-        entries.push({ kind: "scalar", index: nextPrefix.join(""), value: "null" });
+        entries.push({ kind: "scalar", index: nextDisplayPrefix.join(""), value: "null" });
         return;
       }
       if (item && item._type === "scalar") {
         const scalarText = String(item.value ?? "");
         const parsed = parseStructLikeString(scalarText);
         if (parsed) {
-          entries.push({ kind: "struct-header", index: nextPrefix.join(""), value: parsed.label });
+          entries.push({ kind: "struct-header", index: nextDisplayPrefix.join(""), value: parsed.label });
           for (const field of parsed.fields) {
             entries.push({ kind: "struct-field", index: field.key, value: field.value });
           }
           return;
         }
       }
-      entries.push(...flattenArrayEntries(item, nextPrefix));
+      entries.push(...flattenArrayEntries(item, nextDisplayPrefix, nextObjPath));
     });
     return entries;
   }
@@ -191,19 +198,54 @@ export function flattenArrayEntries(value, prefix = []) {
   return entries;
 }
 
-export function renderArrayEntryRow(entry) {
+function structIsEditable(node) {
+  return !!node && node._type === "struct" && node.editable !== false;
+}
+
+// Recursively checks a single element, which may itself be a nested array
+// (for multi-dimensional array values — asyncua reshapes 2D/3D arrays into
+// nested lists rather than a single flat list).
+function isEditableArrayElement(item) {
+  if (item == null) return true;
+  if (Array.isArray(item)) {
+    if (item.length === 0) return true;
+    return item.every(isEditableArrayElement);
+  }
+  if (item._type === "scalar") return parseStructLikeString(String(item.value ?? "")) === null;
+  if (item._type === "struct") return structIsEditable(item);
+  return false;
+}
+
+export function isEditableValue(valueRaw) {
+  if (Array.isArray(valueRaw)) {
+    if (valueRaw.length === 0) return false;
+    return valueRaw.every(isEditableArrayElement);
+  }
+  if (valueRaw && valueRaw._type === "struct") return structIsEditable(valueRaw);
+  return false;
+}
+
+export function renderArrayEntryRow(entry, editable = false) {
   const kind = entry?.kind || "scalar";
   const idxHtml = escapeHtml(entry?.index || "[]");
   const valHtml = escapeHtml(entry?.value ?? "");
+  const canEditThis = editable && entry?.path !== undefined;
+  const pathAttr = canEditThis ? ` data-path='${escapeHtml(JSON.stringify(entry.path))}'` : "";
 
   if (kind === "struct-header") {
     return `<tr class="array-elem-hdr"><td class="array-idx array-idx-elem">${idxHtml}</td><td class="array-val array-struct-label">${valHtml}</td></tr>`;
   }
 
   if (kind === "struct-field") {
+    if (canEditThis) {
+      return `<tr class="array-field-row"><td class="array-idx array-field-name">${idxHtml}</td><td class="array-val array-field-val"><input type="text" class="array-val-input dialog-input"${pathAttr} value="${valHtml}" /></td></tr>`;
+    }
     return `<tr class="array-field-row"><td class="array-idx array-field-name">${idxHtml}</td><td class="array-val array-field-val">${valHtml}</td></tr>`;
   }
 
+  if (canEditThis) {
+    return `<tr class="array-elem-hdr"><td class="array-idx array-idx-elem">${idxHtml}</td><td class="array-val"><input type="text" class="array-val-input dialog-input"${pathAttr} value="${valHtml}" /></td></tr>`;
+  }
   return `<tr class="array-elem-hdr"><td class="array-idx array-idx-elem">${idxHtml}</td><td class="array-val">${valHtml}</td></tr>`;
 }
 

@@ -9,6 +9,7 @@ import {
   clearAllMonitored,
   showValueDetail,
   hideValueDetail,
+  writeValueDetail,
 } from "./monitor.js";
 import { showContextMenu, hideContextMenu } from "./contextmenu.js";
 import {
@@ -19,6 +20,11 @@ import {
   hideSettings,
   onIndexRangeToggle,
   applySettings,
+  showNodeAttributes,
+  hideNodeAttributes,
+  refreshNodeAttributes,
+  writeAttributeValue,
+  viewNodeAttributeValue,
 } from "./dialogs.js";
 
 // ─── Connection ─────────────────────────────────────────
@@ -58,7 +64,13 @@ window.applySettings = applySettings;
 window.hideSettings = hideSettings;
 window.onIndexRangeToggle = onIndexRangeToggle;
 window.hideValueDetail = hideValueDetail;
+window.writeValueDetail = writeValueDetail;
 window.removeMonitoredNode = removeMonitoredNode;
+window.showNodeAttributes = showNodeAttributes;
+window.hideNodeAttributes = hideNodeAttributes;
+window.refreshNodeAttributes = refreshNodeAttributes;
+window.writeAttributeValue = writeAttributeValue;
+window.viewNodeAttributeValue = viewNodeAttributeValue;
 
 // ─── Init ───────────────────────────────────────────────
 (async () => {
@@ -145,38 +157,48 @@ window.removeMonitoredNode = removeMonitoredNode;
     e.preventDefault();
     const tr = e.target.closest("tr[id^='row-']");
     state.ctxTargetSeq = tr ? parseInt(tr.id.replace("row-", ""), 10) : null;
+    state.ctxTargetTreeNode = null;
     const hasRow = state.ctxTargetSeq != null && state.monitored.has(state.ctxTargetSeq);
+    document.getElementById("ctx-item-attributes").style.display = hasRow ? "block" : "none";
+    document.getElementById("ctx-sep-attributes").style.display = hasRow ? "block" : "none";
     document.getElementById("ctx-item-settings").style.display = hasRow ? "block" : "none";
     document.getElementById("ctx-sep-settings").style.display = hasRow ? "block" : "none";
+    document.getElementById("ctx-item-add").style.display = "block";
+    document.getElementById("ctx-sep-add").style.display = "block";
+    document.getElementById("ctx-item-clear").style.display = "block";
     showContextMenu(e.clientX, e.clientY);
   });
-  document.addEventListener("click", () => hideContextMenu());
+  // Context menu on address space tree — detect which node row was right-clicked
+  document.getElementById("browser-panel").addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    const row = e.target.closest(".tree-node");
+    state.ctxTargetTreeNode = row
+      ? { node_id: row.dataset.nodeId, display_name: row.dataset.displayName, node_class: row.dataset.nodeClass }
+      : null;
+    state.ctxTargetSeq = null;
+    const hasNode = !!state.ctxTargetTreeNode;
+    if (!hasNode) return; // nothing to show for empty-area right-click
+    document.getElementById("ctx-item-attributes").style.display = "block";
+    document.getElementById("ctx-sep-attributes").style.display = "none";
+    document.getElementById("ctx-item-settings").style.display = "none";
+    document.getElementById("ctx-sep-settings").style.display = "none";
+    document.getElementById("ctx-item-add").style.display = "none";
+    document.getElementById("ctx-sep-add").style.display = "none";
+    document.getElementById("ctx-item-clear").style.display = "none";
+    showContextMenu(e.clientX, e.clientY);
+  });
+  // Use capture phase so the menu still hides even when the click target
+  // (e.g. a tree row) calls stopPropagation() during the bubble phase.
+  document.addEventListener("click", () => hideContextMenu(), true);
   // Prevent context menu click from immediately closing the menu
   document.getElementById("ctx-menu").addEventListener("click", (e) => e.stopPropagation());
 
-  // Enter / Escape in add dialog
+  // Dialogs are modal: only the Close/Cancel button dismisses them (Enter still confirms).
   document.getElementById("dialog-node-id").addEventListener("keydown", (e) => {
     if (e.key === "Enter") confirmAddDialog();
-    if (e.key === "Escape") hideAddDialog();
-  });
-  // Click on overlay backdrop closes dialog
-  document.getElementById("add-dialog-overlay").addEventListener("click", (e) => {
-    if (e.target === e.currentTarget) hideAddDialog();
-  });
-  // Settings dialog listeners
-  document.getElementById("settings-overlay").addEventListener("click", (e) => {
-    if (e.target === e.currentTarget) hideSettings();
   });
   document.getElementById("settings-ir-value").addEventListener("keydown", (e) => {
     if (e.key === "Enter") applySettings();
-    if (e.key === "Escape") hideSettings();
-  });
-  // Value detail modal: backdrop click + Escape
-  document.getElementById("value-detail-overlay").addEventListener("click", (e) => {
-    if (e.target === e.currentTarget) hideValueDetail();
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") hideValueDetail();
   });
   // Double-click any monitor row to view full value / array contents
   document.getElementById("monitor-tbody").addEventListener("dblclick", (e) => {

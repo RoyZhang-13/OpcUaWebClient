@@ -153,6 +153,15 @@
 .array-table tbody tr:hover td { background: #ddeeff; }
 .array-idx { color: #6b7280; text-align: right; font-family: 'Consolas', monospace; width: 70px; }
 .array-val { color: #0a5c2e; font-family: 'Consolas', monospace; font-weight: 600; }
+.array-val-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: 'Consolas', monospace;
+  font-weight: 600;
+  color: #0a5c2e;
+  padding: 2px 6px;
+  font-size: 12px;
+}
 
 /* ===== Array Viewer — Structured rows ===== */
 .array-elem-hdr td { background: #edf1f7 !important; }
@@ -190,3 +199,61 @@
 }
 .settings-check-label input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; }
 .settings-hint { font-size: 10px; color: #9ca3af; margin-top: 5px; }
+
+/* ===== Node Attributes Dialog ===== */
+.attributes-box {
+  min-width: 480px;
+  max-width: min(92vw, 640px);
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+}
+.attributes-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.attributes-table td { padding: 4px 10px; border-bottom: 1px solid #e4e7eb; vertical-align: top; }
+.attr-name { color: #4b5563; font-weight: 600; width: 40%; white-space: nowrap; }
+.attr-value {
+  color: #0a5c2e;
+  font-family: 'Consolas', monospace;
+  word-break: break-all;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.attributes-loading, .attributes-error { color: #9ca3af; text-align: center; padding: 10px; }
+.attributes-error { color: #c0392b; }
+.attr-value-editable { padding: 4px 6px !important; }
+.attr-write-inline { display: flex; align-items: center; gap: 6px; }
+.attr-value-preview {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #0a5c2e;
+  font-family: 'Consolas', monospace;
+}
+.attr-write-input {
+  flex: 1;
+  padding: 3px 7px;
+  font-size: 12px;
+}
+.attr-write-btn {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid #b0b8c4;
+  border-radius: 3px;
+  background: #f5f6f8;
+  color: #4b5563;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.attr-write-btn:hover { background: #2d5fa8; border-color: #2d5fa8; color: #fff; }
+.attributes-msg-error { color: #c0392b; }
+.attributes-msg-ok { color: #0a7a3d; }
