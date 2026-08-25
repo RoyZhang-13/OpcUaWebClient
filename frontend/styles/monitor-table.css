@@ -105,6 +105,10 @@
 #monitor-table td.cell-remove button:hover { color: #c0392b; background: #fde8e8; }
 #monitor-table tr.row-updated td { transition: background 0.08s; background: #d1fae5 !important; }
 
+/* Persistent marker for a row whose subscription (createMonitorItem) failed */
+#monitor-table tr.row-sub-error td { background: #fde8e8 !important; }
+#monitor-table tr.row-sub-error td.cell-status { color: #c0392b; font-weight: 700; }
+
 /* Indicate dblclick availability on all rows */
 #monitor-table tbody tr { cursor: pointer; }
 #monitor-table td.cell-remove { cursor: default; }

@@ -4,16 +4,61 @@ import { hideContextMenu } from "./contextmenu.js";
 import { escapeHtml, flattenArrayEntries, renderArrayEntryRow, bindTableColumnResize, isEditableValue } from "./utils.js";
 
 // ─── Subscription creation ──────────────────────────────
+function markRowSubscribeError(seq, message) {
+  const tr = document.getElementById(`row-${seq}`);
+  if (!tr) return;
+  tr.classList.add("row-sub-error");
+  tr.title = message ? `Subscribe failed: ${message}` : "Subscribe failed";
+}
+
+function clearRowSubscribeError(seq) {
+  const tr = document.getElementById(`row-${seq}`);
+  if (!tr) return;
+  tr.classList.remove("row-sub-error");
+  tr.removeAttribute("title");
+}
+
 export async function createMonitorItem(seq, node_id, index_range = null, reason = "") {
   const subRes = await apiFetch("/api/subscribe", "POST", { seq, node_id, index_range });
   const ok = subRes?.status === "subscribed" || subRes?.status === "already_subscribed";
-  if (ok) return { ok: true, response: subRes };
+  if (ok) {
+    clearRowSubscribeError(seq);
+    return { ok: true, response: subRes };
+  }
 
   const msg = subRes?.error || subRes?.message || subRes?.status || "Unknown create monitor item error";
   const rangeText = index_range ? ` [IndexRange=${index_range}]` : "";
   const reasonText = reason ? ` (${reason})` : "";
   appendLog(`Create monitor item failed${reasonText}: ${node_id}${rangeText} | ${msg}`, "error");
+  markRowSubscribeError(seq, msg);
   return { ok: false, response: subRes };
+}
+
+// Re-establish subscriptions for every node already in the monitor table.
+// Called after a fresh /api/connect succeeds, so a Disconnect → Connect
+// cycle restores the previously monitored list instead of leaving it dead.
+export async function resubscribeAllMonitored() {
+  const seqs = Array.from(state.monitored.keys());
+  for (const seq of seqs) {
+    const m = state.monitored.get(seq);
+    if (!m) continue;
+    const readRes = await apiFetch(`/api/read?node_id=${encodeURIComponent(m.node_id)}`);
+    if (readRes && !readRes.error) {
+      m.display_name = readRes.display_name ?? m.display_name;
+      m.value = readRes.value ?? "";
+      m.value_raw = readRes.value_raw ?? null;
+      m.data_type = readRes.data_type ?? "";
+      m.source_ts = readRes.source_timestamp ?? "";
+      m.server_ts = readRes.server_timestamp ?? "";
+      m.status_code = readRes.status_code ?? "";
+    }
+    updateTableRow(seq);
+    const createRes = await createMonitorItem(seq, m.node_id, m.index_range, "reconnect resubscribe");
+    if (!createRes.ok) {
+      appendLog(`Resubscribe failed after reconnect: ${m.node_id}`, "error");
+    }
+  }
+  syncDropHint();
 }
 
 // ─── Monitored Table ────────────────────────────────────

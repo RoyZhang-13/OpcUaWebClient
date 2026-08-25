@@ -10,6 +10,7 @@ import {
   showValueDetail,
   hideValueDetail,
   writeValueDetail,
+  resubscribeAllMonitored,
 } from "./monitor.js";
 import { showContextMenu, hideContextMenu } from "./contextmenu.js";
 import {
@@ -45,6 +46,7 @@ async function toggleConnect() {
       setConnected(true);
       initWS();
       loadRootNodes();
+      resubscribeAllMonitored();
     } else {
       alert("Connection failed: " + (res?.message || "Unknown error"));
     }
