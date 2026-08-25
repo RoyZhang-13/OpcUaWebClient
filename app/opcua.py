@@ -565,7 +565,7 @@ def _is_complex_value(val: Any) -> bool:
     return True
 
 
-async def _read_node_attributes(node_id: str) -> dict:
+async def _read_node_attributes(node_id: str, index_range: Optional[str] = None) -> dict:
     node = await _get_node(node_id)
     display_name = ""
     try:
@@ -593,7 +593,10 @@ async def _read_node_attributes(node_id: str) -> dict:
     value_raw = None
     for attr_id, name in attrs_to_read:
         try:
-            dv = await node.read_attribute(attr_id)
+            # Only the Value attribute is scoped by IndexRange; other
+            # attributes (DataType, AccessLevel, etc.) always refer to the
+            # whole node regardless of the row's configured sub-range.
+            dv = await node.read_attribute(attr_id, index_range if name == "Value" else None)
             val = dv.Value.Value
             display_val = await _format_attribute_value(name, val)
             attributes.append({"name": name, "value": display_val})

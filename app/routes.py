@@ -42,17 +42,23 @@ class WriteRequest(BaseModel):
     node_id: str
     value: str
     data_type: str = "auto"
+    index_range: Optional[str] = None
 
 
 class WriteStructuredRequest(BaseModel):
     node_id: str
     value: Any
+    index_range: Optional[str] = None
 
 
 class SubscribeRequest(BaseModel):
     seq: int
     node_id: str
     index_range: Optional[str] = None
+    sampling_interval: Optional[float] = None
+    queue_size: Optional[int] = None
+    discard_oldest: Optional[bool] = None
+    monitoring_mode: Optional[str] = None
 
 
 class SubscriptionSettingsRequest(BaseModel):
@@ -155,11 +161,11 @@ def create_app() -> FastAPI:
             return {"error": str(e)}
 
     @app.get("/api/node_attributes")
-    async def node_attributes(node_id: str):
+    async def node_attributes(node_id: str, index_range: Optional[str] = None):
         if not state.connected:
             return {"error": "Not connected"}
         try:
-            return await _read_node_attributes(node_id)
+            return await _read_node_attributes(node_id, index_range)
         except Exception as e:
             return {"error": str(e)}
 
@@ -228,7 +234,7 @@ def create_app() -> FastAPI:
             return {"error": "Not connected"}
         try:
             node = await _get_node(req.node_id)
-            current_dv = await node.read_data_value()
+            current_dv = await node.read_attribute(ua.AttributeIds.Value, req.index_range)
             current_val = current_dv.Value.Value
             if req.data_type == "auto" and current_val is not None:
                 new_val = _coerce_value_for_write(req.value, current_val)
@@ -242,7 +248,9 @@ def create_app() -> FastAPI:
             # Build a DataValue with only Value set (no timestamps/status). Some
             # servers reply BadWriteNotSupported if timestamps are included, which
             # asyncua's write_value() does by default (SourceTimestamp=now()).
-            await node.write_value(ua.DataValue(ua.Variant(new_val, variant_type)))
+            await node.write_attribute(
+                ua.AttributeIds.Value, ua.DataValue(ua.Variant(new_val, variant_type)), req.index_range
+            )
             return {"status": "ok", "node_id": req.node_id, "written_value": str(new_val)}
         except Exception as e:
             return {"error": str(e)}
@@ -261,7 +269,7 @@ def create_app() -> FastAPI:
             return {"error": "Not connected"}
         try:
             node = await _get_node(req.node_id)
-            current_dv = await node.read_data_value()
+            current_dv = await node.read_attribute(ua.AttributeIds.Value, req.index_range)
             current_val = current_dv.Value.Value
             new_val = _apply_edited_value(current_val, req.value)
             variant_type = None
@@ -269,7 +277,9 @@ def create_app() -> FastAPI:
                 variant_type = current_dv.Value.VariantType
             except Exception:
                 pass
-            await node.write_value(ua.DataValue(ua.Variant(new_val, variant_type)))
+            await node.write_attribute(
+                ua.AttributeIds.Value, ua.DataValue(ua.Variant(new_val, variant_type)), req.index_range
+            )
             return {"status": "ok", "node_id": req.node_id, "written_value": _safe_value_repr(new_val)}
         except Exception as e:
             return {"error": str(e)}
@@ -329,10 +339,17 @@ def create_app() -> FastAPI:
                 sub_params.PublishingEnabled = s["publishing_enabled"]
                 sub_params.Priority = s["priority"]
                 state.shared_sub = await state.client.create_subscription(sub_params, _shared_handler)
-            sampling_interval = state.subscription_settings["publishing_interval"]
-            mir = state.shared_sub._make_monitored_item_request(
-                node, ua.AttributeIds.Value, None, 1, ua.MonitoringMode.Reporting, sampling_interval
+            sampling_interval = (
+                req.sampling_interval if req.sampling_interval is not None else state.subscription_settings["publishing_interval"]
             )
+            queue_size = req.queue_size if req.queue_size is not None else 1
+            discard_oldest = req.discard_oldest if req.discard_oldest is not None else True
+            monitoring_mode_name = req.monitoring_mode if req.monitoring_mode is not None else "Reporting"
+            monitoring_mode = ua.MonitoringMode[monitoring_mode_name]
+            mir = state.shared_sub._make_monitored_item_request(
+                node, ua.AttributeIds.Value, None, queue_size, monitoring_mode, sampling_interval
+            )
+            mir.RequestedParameters.DiscardOldest = discard_oldest
             client_handle = mir.RequestedParameters.ClientHandle
             if req.index_range:
                 mir.ItemToMonitor.IndexRange = req.index_range
@@ -348,9 +365,9 @@ def create_app() -> FastAPI:
                 "display_name": display_name,
                 "index_range": req.index_range,
                 "sampling_interval": sampling_interval,
-                "queue_size": 1,
-                "discard_oldest": True,
-                "monitoring_mode": "Reporting",
+                "queue_size": queue_size,
+                "discard_oldest": discard_oldest,
+                "monitoring_mode": monitoring_mode_name,
             }
             state.client_handle_to_seq[client_handle] = seq
             return {"status": "subscribed", "seq": seq, "node_id": node_id}

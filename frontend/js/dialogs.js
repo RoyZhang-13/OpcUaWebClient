@@ -130,6 +130,13 @@ export async function applyMonitoredItemSettings() {
     appendLog(`Failed to update monitored item settings: ${res?.error || "unknown error"}`, "error");
     return;
   }
+  const m = state.monitored.get(seq);
+  if (m) {
+    m.sampling_interval = res.sampling_interval;
+    m.queue_size = res.queue_size;
+    m.discard_oldest = res.discard_oldest;
+    m.monitoring_mode = res.monitoring_mode;
+  }
   appendLog(`Monitored item settings updated: ${res.node_id}`, "info");
   hideMonitoredItemSettings();
 }
@@ -190,18 +197,23 @@ let lastAttributesValueRaw = null;
 
 export async function showNodeAttributes() {
   let node = state.ctxTargetTreeNode;
+  let index_range = null;
   if (!node && state.ctxTargetSeq != null) {
     const m = state.monitored.get(state.ctxTargetSeq);
-    if (m) node = { node_id: m.node_id, display_name: m.display_name };
+    if (m) {
+      node = { node_id: m.node_id, display_name: m.display_name };
+      index_range = m.index_range || null;
+    }
   }
   hideContextMenu();
   if (!node) return;
   const overlay = document.getElementById("attributes-overlay");
   overlay.dataset.nodeId = node.node_id;
+  overlay.dataset.indexRange = index_range || "";
   document.getElementById("attributes-node-name").textContent = node.display_name || node.node_id;
-  document.getElementById("attributes-nodeid").textContent = node.node_id;
+  document.getElementById("attributes-nodeid").textContent = node.node_id + (index_range ? ` [${index_range}]` : "");
   overlay.style.display = "flex";
-  await loadNodeAttributes(node.node_id);
+  await loadNodeAttributes(node.node_id, index_range);
 }
 
 export function hideNodeAttributes() {
@@ -209,18 +221,20 @@ export function hideNodeAttributes() {
 }
 
 export async function refreshNodeAttributes() {
-  const node_id = document.getElementById("attributes-overlay").dataset.nodeId;
+  const overlay = document.getElementById("attributes-overlay");
+  const node_id = overlay.dataset.nodeId;
   if (!node_id) return;
-  await loadNodeAttributes(node_id);
+  await loadNodeAttributes(node_id, overlay.dataset.indexRange || null);
 }
 
-async function loadNodeAttributes(node_id) {
+async function loadNodeAttributes(node_id, index_range = null) {
   const tbody = document.getElementById("attributes-tbody");
   const msgEl = document.getElementById("attributes-write-msg");
   tbody.innerHTML = '<tr><td colspan="2" class="attributes-loading">Loading…</td></tr>';
   msgEl.textContent = "";
 
-  const res = await apiFetch(`/api/node_attributes?node_id=${encodeURIComponent(node_id)}`);
+  const rangeQuery = index_range ? `&index_range=${encodeURIComponent(index_range)}` : "";
+  const res = await apiFetch(`/api/node_attributes?node_id=${encodeURIComponent(node_id)}${rangeQuery}`);
   if (res?.error) {
     tbody.innerHTML = `<tr><td colspan="2" class="attributes-error">${escapeHtml(res.error)}</td></tr>`;
     return;
@@ -268,6 +282,7 @@ async function loadNodeAttributes(node_id) {
 export function viewNodeAttributeValue() {
   const overlay = document.getElementById("attributes-overlay");
   const node_id = overlay.dataset.nodeId;
+  const index_range = overlay.dataset.indexRange || null;
   const title = document.getElementById("attributes-node-name").textContent;
   openValueDetailModal({
     title,
@@ -276,12 +291,12 @@ export function viewNodeAttributeValue() {
     plainText: "",
     writable: true,
     onWrite: async (editedValue) => {
-      const result = await apiFetch("/api/write_structured", "POST", { node_id, value: editedValue });
+      const result = await apiFetch("/api/write_structured", "POST", { node_id, value: editedValue, index_range });
       if (result?.error) {
         appendLog(`Write failed: ${node_id} | ${result.error}`, "error");
       } else {
         appendLog(`Wrote value to ${node_id}: ${result.written_value}`);
-        await loadNodeAttributes(node_id);
+        await loadNodeAttributes(node_id, index_range);
       }
       return result;
     },
@@ -289,7 +304,9 @@ export function viewNodeAttributeValue() {
 }
 
 export async function writeAttributeValue() {
-  const node_id = document.getElementById("attributes-overlay").dataset.nodeId;
+  const overlay = document.getElementById("attributes-overlay");
+  const node_id = overlay.dataset.nodeId;
+  const index_range = overlay.dataset.indexRange || null;
   if (!node_id) return;
   const input = document.getElementById("attributes-write-value");
   if (!input) return;
@@ -298,7 +315,7 @@ export async function writeAttributeValue() {
   msgEl.className = "settings-hint";
   msgEl.textContent = "Writing…";
 
-  const res = await apiFetch("/api/write", "POST", { node_id, value, data_type: "auto" });
+  const res = await apiFetch("/api/write", "POST", { node_id, value, data_type: "auto", index_range });
   if (res?.error) {
     msgEl.className = "settings-hint attributes-msg-error";
     msgEl.textContent = "Write failed: " + res.error;
@@ -308,5 +325,5 @@ export async function writeAttributeValue() {
   msgEl.className = "settings-hint attributes-msg-ok";
   msgEl.textContent = "Write succeeded.";
   appendLog(`Wrote value to ${node_id}: ${res.written_value}`);
-  await loadNodeAttributes(node_id);
+  await loadNodeAttributes(node_id, index_range);
 }

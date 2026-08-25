@@ -19,7 +19,15 @@ function clearRowSubscribeError(seq) {
 }
 
 export async function createMonitorItem(seq, node_id, index_range = null, reason = "") {
-  const subRes = await apiFetch("/api/subscribe", "POST", { seq, node_id, index_range });
+  const m = state.monitored.get(seq);
+  const payload = { seq, node_id, index_range };
+  if (m) {
+    if (m.sampling_interval != null) payload.sampling_interval = m.sampling_interval;
+    if (m.queue_size != null) payload.queue_size = m.queue_size;
+    if (m.discard_oldest != null) payload.discard_oldest = m.discard_oldest;
+    if (m.monitoring_mode != null) payload.monitoring_mode = m.monitoring_mode;
+  }
+  const subRes = await apiFetch("/api/subscribe", "POST", payload);
   const ok = subRes?.status === "subscribed" || subRes?.status === "already_subscribed";
   if (ok) {
     clearRowSubscribeError(seq);
@@ -100,6 +108,10 @@ export async function addMonitoredNodeById(node_id) {
     server_ts: readRes.server_timestamp ?? "",
     status_code: readRes.status_code ?? statusCodeOnReadError,
     index_range: null,
+    sampling_interval: null,
+    queue_size: 1,
+    discard_oldest: true,
+    monitoring_mode: "Reporting",
   });
   appendTableRow(seq);
 
