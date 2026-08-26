@@ -17,12 +17,42 @@
   max-width: 90vw;
 }
 .dialog-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   font-size: 13px;
   font-weight: 600;
   color: #fff;
   background: #2d5fa8;
   padding: 8px 14px;
   border-radius: 4px 4px 0 0;
+  cursor: move;
+  user-select: none;
+}
+.dialog-title-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dialog-close-btn {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  line-height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  text-align: center;
+}
+.dialog-close-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 .dialog-body { padding: 14px 14px 10px; }
 .dialog-field-row { margin-bottom: 10px; }
@@ -177,13 +207,47 @@
 .array-struct-label { color: #1e3a6e; font-weight: 700; font-family: 'Segoe UI', system-ui, sans-serif; }
 .array-field-row td { background: #fff; }
 .array-field-name {
-  padding-left: 32px !important;
   color: #4b5563;
   font-family: 'Segoe UI', system-ui, sans-serif;
   font-size: 11px;
   border-left: 2px solid #d1d9e6;
 }
 .array-field-val { color: #0a5c2e; font-family: 'Consolas', monospace; font-weight: 600; }
+
+/* ===== Array Viewer — Tree indentation / collapse ===== */
+.array-tree-cell { text-align: left !important; white-space: nowrap; }
+.tree-indent {
+  display: inline-flex;
+  align-items: stretch;
+  height: 15px;
+  vertical-align: middle;
+}
+.tree-guide {
+  display: inline-block;
+  width: 14px;
+  flex: 0 0 auto;
+  border-left: 1px solid #c3cbda;
+  margin-right: -1px;
+}
+.tree-toggle {
+  display: inline-flex;
+  flex: 0 0 14px;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  margin-right: 4px;
+  cursor: pointer;
+  color: #4a9c4a;
+  font-size: 9px;
+  line-height: 1;
+  transition: transform 0.12s ease;
+  user-select: none;
+}
+.tree-toggle-collapsed { transform: rotate(-90deg); }
+.tree-toggle-spacer { display: inline-block; flex: 0 0 18px; width: 18px; }
+.tree-label { vertical-align: middle; }
+.tree-row-hidden { display: none !important; }
+
 .value-detail-text {
   padding: 12px 14px;
   font-family: 'Consolas', monospace;

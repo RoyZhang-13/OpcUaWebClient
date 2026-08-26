@@ -2,7 +2,7 @@ import { apiFetch } from "./api.js";
 import { state, clearLogPanel, setConnected, syncDropHint } from "./state.js";
 import { initWS } from "./ws.js";
 import { loadRootNodes, clearTree } from "./tree.js";
-import { initColumnResize } from "./utils.js";
+import { initColumnResize, initDraggableDialogs } from "./utils.js";
 import {
   addMonitoredNodeById,
   removeMonitoredNode,
@@ -98,6 +98,7 @@ window.applyMonitoredItemSettings = applyMonitoredItemSettings;
   }
 
   initColumnResize();
+  initDraggableDialogs();
 
   // Left/right panel resize handle
   const handle = document.getElementById("resize-handle");

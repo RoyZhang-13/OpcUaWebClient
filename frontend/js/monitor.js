@@ -1,7 +1,14 @@
 import { apiFetch } from "./api.js";
 import { state, appendLog, syncDropHint } from "./state.js";
 import { hideContextMenu } from "./contextmenu.js";
-import { escapeHtml, flattenArrayEntries, renderArrayEntryRow, bindTableColumnResize, isEditableValue } from "./utils.js";
+import {
+  escapeHtml,
+  flattenArrayEntries,
+  renderArrayEntryRow,
+  bindTableColumnResize,
+  bindArrayTreeToggle,
+  isEditableValue,
+} from "./utils.js";
 
 // ─── Subscription creation ──────────────────────────────
 function markRowSubscribeError(seq, message) {
@@ -216,7 +223,11 @@ export function openValueDetailModal({ title, nodeid, valueRaw, plainText, writa
       entries.map((entry) => renderArrayEntryRow(entry, editable)).join("") +
       "</tbody></table>";
     content.innerHTML = html;
-    requestAnimationFrame(() => bindTableColumnResize(content.querySelector(".array-table")));
+    requestAnimationFrame(() => {
+      const table = content.querySelector(".array-table");
+      bindTableColumnResize(table);
+      bindArrayTreeToggle(table);
+    });
   } else {
     content.innerHTML = `<pre class="value-detail-text">${escapeHtml(plainText ?? "")}</pre>`;
   }
@@ -270,6 +281,7 @@ export function showValueDetail(seq) {
     nodeid: m.node_id,
     valueRaw: m.value_raw,
     plainText: m.value,
+    writable: false,
   });
 }
 

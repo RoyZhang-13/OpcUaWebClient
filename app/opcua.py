@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import json
 import logging
 import os
 import re
 import sys
+import uuid
 from typing import Any, Optional
 
 from asyncua import Client, ua
@@ -156,12 +158,15 @@ def _serialize_element(v: Any) -> dict:
                 id_type, id_key = "3 (Opaque)", "Opaque"
                 raw = v.Identifier
                 id_val = raw.hex().upper() if isinstance(raw, (bytes, bytearray)) else str(raw)
-            # NodeId fields don't map 1:1 to real attribute names (IdentifierType
-            # is synthetic, and the id_key varies), so round-tripping edits isn't
-            # safe — keep this struct read-only.
-            return {"_type": "struct", "_label": "NodeId", "editable": False, "fields": {
+            # IdentifierType is synthetic (derived from NodeIdType, not a real
+            # attribute) and changing it would require re-deriving the
+            # identifier's Python type, so it's kept read-only. NamespaceIndex
+            # and the identifier value itself map cleanly onto NodeId's real
+            # `NamespaceIndex`/`Identifier` attributes (see `_apply_edited_nodeid`),
+            # so those remain editable.
+            return {"_type": "struct", "_label": "NodeId", "editable": True, "fields": {
                 "NamespaceIndex": {"_type": "scalar", "value": str(v.NamespaceIndex)},
-                "IdentifierType": {"_type": "scalar", "value": id_type},
+                "IdentifierType": {"_type": "scalar", "value": id_type, "editable": False},
                 id_key: {"_type": "scalar", "value": id_val},
             }}
     except Exception:
@@ -182,6 +187,16 @@ def _serialize_element(v: Any) -> dict:
             }}
     except Exception:
         pass
+    # asyncua generates custom struct types via `make_dataclass(..., slots=True)`,
+    # so instances have no `__dict__` — check `dataclasses.is_dataclass()` first
+    # and read fields via `dataclasses.fields()`/`getattr()` instead of `vars()`.
+    if dataclasses.is_dataclass(v) and not isinstance(v, type):
+        fields = {}
+        for f in dataclasses.fields(v):
+            if f.name.startswith("_"):
+                continue
+            fields[f.name] = _serialize_value(getattr(v, f.name))
+        return {"_type": "struct", "_label": type(v).__name__, "editable": True, "fields": fields}
     if hasattr(v, "__dict__") and not isinstance(v, type):
         fields = {}
         for k, fv in vars(v).items():
@@ -214,13 +229,26 @@ def _safe_value_repr(v: Any) -> str:
         except Exception:
             pass
         body = getattr(v, "Body", None)
-        if body is not None and hasattr(body, "__dict__"):
+        if body is not None and dataclasses.is_dataclass(body):
+            try:
+                fields = {f.name: getattr(body, f.name) for f in dataclasses.fields(body) if not f.name.startswith("_")}
+                return f"{type_name}({', '.join(f'{k}={_safe_value_repr(val)}' for k, val in fields.items())})"
+            except Exception:
+                pass
+        elif body is not None and hasattr(body, "__dict__"):
             try:
                 fields = vars(body)
                 return f"{type_name}({', '.join(f'{k}={_safe_value_repr(val)}' for k, val in fields.items() if not k.startswith('_'))})"
             except Exception:
                 pass
         return f"{type_name}({body!r})"
+    if dataclasses.is_dataclass(v) and not isinstance(v, type):
+        try:
+            items = [f"{f.name}={_safe_value_repr(getattr(v, f.name))}" for f in dataclasses.fields(v) if not f.name.startswith("_")]
+            if items:
+                return f"{type(v).__name__}({', '.join(items)})"
+        except Exception:
+            pass
     if hasattr(v, "__dict__") and not isinstance(v, type):
         items = []
         try:
@@ -448,6 +476,47 @@ def _coerce_value_for_write(raw: str, current_val: Any) -> Any:
     return _convert_scalar(text, current_val)
 
 
+def _apply_edited_nodeid(current: ua.NodeId, fields: dict) -> ua.NodeId:
+    """Rebuild a `ua.NodeId` from edited scalar leaves.
+
+    Only `NamespaceIndex` and the identifier value (keyed by `Numeric`/`String`/
+    `Guid`/`Opaque`, matching the current `NodeIdType`) are applied; the
+    `NodeIdType` itself is never changed, since the frontend never lets it be
+    edited. Falls back to the unmodified `current` value if the edited
+    identifier can't be converted to the type NodeId expects.
+    """
+    namespace_idx = current.NamespaceIndex
+    ns_field = fields.get("NamespaceIndex")
+    if isinstance(ns_field, dict) and ns_field.get("_type") == "scalar":
+        try:
+            namespace_idx = int(str(ns_field.get("value", namespace_idx)).strip())
+        except (TypeError, ValueError):
+            pass
+
+    ntype_val = current.NodeIdType.value if hasattr(current.NodeIdType, "value") else int(current.NodeIdType)
+    if ntype_val in (0, 1, 2):
+        id_key, convert = "Numeric", int
+    elif ntype_val == 3:
+        id_key, convert = "String", str
+    elif ntype_val == 4:
+        id_key, convert = "Guid", (lambda s: uuid.UUID(s.strip("{}")))
+    else:
+        id_key, convert = "Opaque", bytes.fromhex
+
+    identifier = current.Identifier
+    id_field = fields.get(id_key)
+    if isinstance(id_field, dict) and id_field.get("_type") == "scalar":
+        try:
+            identifier = convert(str(id_field.get("value", "")))
+        except (TypeError, ValueError):
+            pass
+
+    try:
+        return dataclasses.replace(current, Identifier=identifier, NamespaceIndex=namespace_idx)
+    except Exception:
+        return current
+
+
 def _apply_edited_value(current: Any, edited: Any) -> Any:
     """Rebuild a value matching `current`'s live Python/asyncua types, applying
     user-edited scalar leaves from an edited value-tree shaped like the JSON
@@ -456,8 +525,10 @@ def _apply_edited_value(current: Any, edited: Any) -> Any:
 
     Struct branches are deep-copied from `current` and only the fields present
     in `edited["fields"]` are overwritten (via setattr); fields with no real
-    attribute counterpart (e.g. NodeId's synthetic keys) are silently skipped,
-    so non-editable structs simply round-trip unchanged.
+    attribute counterpart are silently skipped, so non-editable fields simply
+    round-trip unchanged. `ua.NodeId` is special-cased (see
+    `_apply_edited_nodeid`) since its editable fields don't map 1:1 onto real
+    attribute names.
     """
     if isinstance(edited, dict):
         etype = edited.get("_type")
@@ -465,6 +536,8 @@ def _apply_edited_value(current: Any, edited: Any) -> Any:
             return _convert_scalar(str(edited.get("value", "")), current)
         if etype == "struct":
             fields = edited.get("fields") or {}
+            if isinstance(current, ua.NodeId):
+                return _apply_edited_nodeid(current, fields)
             obj = copy.deepcopy(current)
             for key, sub_edited in fields.items():
                 if not hasattr(obj, key):

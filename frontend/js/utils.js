@@ -124,12 +124,13 @@ export function parseStructLikeString(text) {
   return { label, fields };
 }
 
-export function flattenArrayEntries(value, displayPrefix = [], objPath = []) {
+export function flattenArrayEntries(value, displayPrefix = [], objPath = [], depth = 0, ancestors = []) {
   const entries = [];
   const indexText = displayPrefix.join("") || "[]";
+  const rowId = JSON.stringify(objPath.length ? objPath : ["__root__", displayPrefix.join("")]);
 
   if (value == null) {
-    entries.push({ kind: "scalar", index: indexText, value: "null" });
+    entries.push({ kind: "scalar", index: indexText, value: "null", depth, ancestors });
     return entries;
   }
 
@@ -137,35 +138,62 @@ export function flattenArrayEntries(value, displayPrefix = [], objPath = []) {
     const scalarText = String(value.value ?? "");
     const parsed = parseStructLikeString(scalarText);
     if (parsed) {
-      entries.push({ kind: "struct-header", index: indexText, value: parsed.label });
+      entries.push({
+        kind: "struct-header",
+        index: indexText,
+        value: parsed.label,
+        depth,
+        ancestors,
+        id: rowId,
+        expandable: parsed.fields.length > 0,
+      });
+      const childAncestors = [...ancestors, rowId];
       for (const field of parsed.fields) {
-        entries.push({ kind: "struct-field", index: field.key, value: field.value });
+        entries.push({ kind: "struct-field", index: field.key, value: field.value, depth: depth + 1, ancestors: childAncestors });
       }
       return entries;
     }
-    entries.push({ kind: "scalar", index: indexText, value: scalarText, path: objPath });
+    entries.push({ kind: "scalar", index: indexText, value: scalarText, path: objPath, depth, ancestors });
     return entries;
   }
 
   if (value && value._type === "struct") {
     const fields = value.fields || {};
     const editableStruct = value.editable !== false;
-    entries.push({ kind: "struct-header", index: indexText, value: value._label || "Struct" });
-    for (const [key, inner] of Object.entries(fields)) {
+    const fieldEntries = Object.entries(fields);
+    entries.push({
+      kind: "struct-header",
+      index: indexText,
+      value: value._label || "Struct",
+      depth,
+      ancestors,
+      id: rowId,
+      expandable: fieldEntries.length > 0,
+    });
+    const childAncestors = [...ancestors, rowId];
+    for (const [key, inner] of fieldEntries) {
       if (inner == null) {
-        entries.push({ kind: "struct-field", index: key, value: "null" });
+        entries.push({ kind: "struct-field", index: key, value: "null", depth: depth + 1, ancestors: childAncestors });
         continue;
       }
       if (inner && inner._type === "scalar") {
+        const fieldEditable = editableStruct && inner.editable !== false;
         entries.push({
           kind: "struct-field",
           index: key,
           value: String(inner.value ?? ""),
-          path: editableStruct ? [...objPath, key] : undefined,
+          path: fieldEditable ? [...objPath, key] : undefined,
+          depth: depth + 1,
+          ancestors: childAncestors,
         });
         continue;
       }
-      entries.push({ kind: "struct-field", index: key, value: formatArrayDisplay(inner) });
+      // Nested struct or array fields (e.g. ServerStatusDataType.BuildInfo,
+      // ShutdownReason: LocalizedText) are recursed into their own
+      // hierarchical, independently collapsible rows (one indent level
+      // deeper) instead of being collapsed into a flattened
+      // "{key: value, ...}" text blob.
+      entries.push(...flattenArrayEntries(inner, [key], [...objPath, key], depth + 1, childAncestors));
     }
     return entries;
   }
@@ -175,26 +203,40 @@ export function flattenArrayEntries(value, displayPrefix = [], objPath = []) {
       const nextDisplayPrefix = [...displayPrefix, `[${idx}]`];
       const nextObjPath = [...objPath, idx];
       if (item == null) {
-        entries.push({ kind: "scalar", index: nextDisplayPrefix.join(""), value: "null" });
+        entries.push({ kind: "scalar", index: nextDisplayPrefix.join(""), value: "null", depth, ancestors });
         return;
       }
       if (item && item._type === "scalar") {
         const scalarText = String(item.value ?? "");
         const parsed = parseStructLikeString(scalarText);
         if (parsed) {
-          entries.push({ kind: "struct-header", index: nextDisplayPrefix.join(""), value: parsed.label });
+          const itemId = JSON.stringify(nextObjPath);
+          entries.push({
+            kind: "struct-header",
+            index: nextDisplayPrefix.join(""),
+            value: parsed.label,
+            depth,
+            ancestors,
+            id: itemId,
+            expandable: parsed.fields.length > 0,
+          });
+          const childAncestors = [...ancestors, itemId];
           for (const field of parsed.fields) {
-            entries.push({ kind: "struct-field", index: field.key, value: field.value });
+            entries.push({ kind: "struct-field", index: field.key, value: field.value, depth: depth + 1, ancestors: childAncestors });
           }
           return;
         }
       }
-      entries.push(...flattenArrayEntries(item, nextDisplayPrefix, nextObjPath));
+      // Array dimensions/elements stay at the same depth — they're already
+      // distinguished via the bracket index text (e.g. "[0][0][0]") rather
+      // than needing their own indent level. Struct elements still get their
+      // own collapsible header (handled by the recursive call below).
+      entries.push(...flattenArrayEntries(item, nextDisplayPrefix, nextObjPath, depth, ancestors));
     });
     return entries;
   }
 
-  entries.push({ kind: "scalar", index: indexText, value: String(value) });
+  entries.push({ kind: "scalar", index: indexText, value: String(value), depth, ancestors });
   return entries;
 }
 
@@ -232,21 +274,72 @@ export function renderArrayEntryRow(entry, editable = false) {
   const canEditThis = editable && entry?.path !== undefined;
   const pathAttr = canEditThis ? ` data-path='${escapeHtml(JSON.stringify(entry.path))}'` : "";
 
+  // Tree presentation: each level of nesting (struct-in-struct, or a
+  // struct-typed array element) gets a vertical guide line connecting it to
+  // its parent, plus a collapse/expand toggle when the row has children.
+  const depth = entry?.depth || 0;
+  const ancestors = entry?.ancestors || [];
+  const rowAttrs = ` data-depth="${depth}" data-ancestors='${escapeHtml(JSON.stringify(ancestors))}'`;
+  const guides = Array.from({ length: depth }, () => `<span class="tree-guide"></span>`).join("");
+  const toggleHtml = entry?.expandable
+    ? `<span class="tree-toggle" data-toggle-id="${escapeHtml(entry.id || "")}">&#9660;</span>`
+    : `<span class="tree-toggle-spacer"></span>`;
+  const nameCell = `<span class="tree-indent">${guides}${toggleHtml}</span><span class="tree-label">${idxHtml}</span>`;
+
   if (kind === "struct-header") {
-    return `<tr class="array-elem-hdr"><td class="array-idx array-idx-elem">${idxHtml}</td><td class="array-val array-struct-label">${valHtml}</td></tr>`;
+    return `<tr class="array-elem-hdr"${rowAttrs}><td class="array-idx array-idx-elem array-tree-cell">${nameCell}</td><td class="array-val array-struct-label">${valHtml}</td></tr>`;
   }
 
   if (kind === "struct-field") {
     if (canEditThis) {
-      return `<tr class="array-field-row"><td class="array-idx array-field-name">${idxHtml}</td><td class="array-val array-field-val"><input type="text" class="array-val-input dialog-input"${pathAttr} value="${valHtml}" /></td></tr>`;
+      return `<tr class="array-field-row"${rowAttrs}><td class="array-idx array-field-name array-tree-cell">${nameCell}</td><td class="array-val array-field-val"><input type="text" class="array-val-input dialog-input"${pathAttr} value="${valHtml}" /></td></tr>`;
     }
-    return `<tr class="array-field-row"><td class="array-idx array-field-name">${idxHtml}</td><td class="array-val array-field-val">${valHtml}</td></tr>`;
+    return `<tr class="array-field-row"${rowAttrs}><td class="array-idx array-field-name array-tree-cell">${nameCell}</td><td class="array-val array-field-val">${valHtml}</td></tr>`;
   }
 
   if (canEditThis) {
-    return `<tr class="array-elem-hdr"><td class="array-idx array-idx-elem">${idxHtml}</td><td class="array-val"><input type="text" class="array-val-input dialog-input"${pathAttr} value="${valHtml}" /></td></tr>`;
+    return `<tr class="array-elem-hdr"${rowAttrs}><td class="array-idx array-idx-elem array-tree-cell">${nameCell}</td><td class="array-val"><input type="text" class="array-val-input dialog-input"${pathAttr} value="${valHtml}" /></td></tr>`;
   }
-  return `<tr class="array-elem-hdr"><td class="array-idx array-idx-elem">${idxHtml}</td><td class="array-val">${valHtml}</td></tr>`;
+  return `<tr class="array-elem-hdr"${rowAttrs}><td class="array-idx array-idx-elem array-tree-cell">${nameCell}</td><td class="array-val">${valHtml}</td></tr>`;
+}
+
+// Wires up collapse/expand behavior for the tree toggles rendered by
+// `renderArrayEntryRow`. A row is hidden whenever any of its ancestor struct
+// ids are in the (locally-tracked) collapsed set, so nested collapse/expand
+// combinations resolve correctly regardless of click order.
+export function bindArrayTreeToggle(table) {
+  if (!table) return;
+  const collapsed = new Set();
+
+  function applyVisibility() {
+    const rows = Array.from(table.querySelectorAll("tbody tr[data-ancestors]"));
+    for (const row of rows) {
+      let ancestors = [];
+      try {
+        ancestors = JSON.parse(row.dataset.ancestors || "[]");
+      } catch {
+        ancestors = [];
+      }
+      const hidden = ancestors.some((id) => collapsed.has(id));
+      row.classList.toggle("tree-row-hidden", hidden);
+    }
+  }
+
+  const toggles = Array.from(table.querySelectorAll(".tree-toggle[data-toggle-id]"));
+  for (const toggle of toggles) {
+    toggle.addEventListener("click", () => {
+      const id = toggle.dataset.toggleId;
+      if (!id) return;
+      if (collapsed.has(id)) {
+        collapsed.delete(id);
+        toggle.classList.remove("tree-toggle-collapsed");
+      } else {
+        collapsed.add(id);
+        toggle.classList.add("tree-toggle-collapsed");
+      }
+      applyVisibility();
+    });
+  }
 }
 
 export function bindTableColumnResize(table) {
@@ -284,4 +377,54 @@ export function bindTableColumnResize(table) {
 
 export function initColumnResize() {
   bindTableColumnResize(document.getElementById("monitor-table"));
+}
+
+// ─── Draggable dialogs ──────────────────────────────────
+// Makes every `.dialog-box` draggable by its `.dialog-title` header. Position
+// is only switched from the default flex-centered layout to `fixed` once the
+// user starts dragging, so dialogs still open centered by default.
+export function initDraggableDialogs() {
+  document.querySelectorAll(".dialog-box").forEach((box) => {
+    const handle = box.querySelector(".dialog-title");
+    if (!handle || handle.dataset.dragInit) return;
+    handle.dataset.dragInit = "1";
+
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+
+    handle.addEventListener("mousedown", (e) => {
+      if (e.target.closest(".dialog-close-btn")) return;
+      const rect = box.getBoundingClientRect();
+      box.style.position = "fixed";
+      box.style.margin = "0";
+      box.style.left = rect.left + "px";
+      box.style.top = rect.top + "px";
+      startLeft = rect.left;
+      startTop = rect.top;
+      startX = e.clientX;
+      startY = e.clientY;
+      dragging = true;
+      document.body.style.userSelect = "none";
+      e.preventDefault();
+    });
+
+    document.addEventListener("mousemove", (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      const maxLeft = window.innerWidth - 60;
+      const maxTop = window.innerHeight - 30;
+      box.style.left = Math.min(Math.max(startLeft + dx, -box.offsetWidth + 80), maxLeft) + "px";
+      box.style.top = Math.min(Math.max(startTop + dy, 0), maxTop) + "px";
+    });
+
+    document.addEventListener("mouseup", () => {
+      if (!dragging) return;
+      dragging = false;
+      document.body.style.userSelect = "";
+    });
+  });
 }

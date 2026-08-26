@@ -86,7 +86,10 @@
   <!-- Add Monitor Dialog -->
   <div id="add-dialog-overlay" class="dialog-overlay" style="display:none">
     <div class="dialog-box">
-      <div class="dialog-title">Add Monitor Item</div>
+      <div class="dialog-title">
+        <span class="dialog-title-text">Add Monitor Item</span>
+        <button type="button" class="dialog-close-btn" onclick="hideAddDialog()" aria-label="Close">&times;</button>
+      </div>
       <div class="dialog-body">
         <label class="dialog-label">Node ID</label>
         <input id="dialog-node-id" type="text" class="dialog-input"
@@ -102,7 +105,10 @@
   <!-- Item Settings Dialog -->
   <div id="settings-overlay" class="dialog-overlay" style="display:none">
     <div class="dialog-box settings-box">
-      <div class="dialog-title">Item Settings — <span id="settings-node-name"></span></div>
+      <div class="dialog-title">
+        <span class="dialog-title-text">Item Settings — <span id="settings-node-name"></span></span>
+        <button type="button" class="dialog-close-btn" onclick="hideSettings()" aria-label="Close">&times;</button>
+      </div>
       <div class="value-detail-meta"><span id="settings-nodeid"></span></div>
       <div class="dialog-body">
         <label class="settings-check-label">
@@ -126,7 +132,10 @@
   <!-- Monitored Item Settings Dialog -->
   <div id="monitored-item-settings-overlay" class="dialog-overlay" style="display:none">
     <div class="dialog-box settings-box subscription-settings-box">
-      <div class="dialog-title">Monitored Item Settings</div>
+      <div class="dialog-title">
+        <span class="dialog-title-text">Monitored Item Settings</span>
+        <button type="button" class="dialog-close-btn" onclick="hideMonitoredItemSettings()" aria-label="Close">&times;</button>
+      </div>
       <div class="dialog-body">
         <div class="dialog-field-row">
           <label class="dialog-label">Node Id:</label>
@@ -163,7 +172,10 @@
   <!-- Subscription Settings Dialog -->
   <div id="subscription-settings-overlay" class="dialog-overlay" style="display:none">
     <div class="dialog-box settings-box subscription-settings-box">
-      <div class="dialog-title">Subscription Settings</div>
+      <div class="dialog-title">
+        <span class="dialog-title-text">Subscription Settings</span>
+        <button type="button" class="dialog-close-btn" onclick="hideSubscriptionSettings()" aria-label="Close">&times;</button>
+      </div>
       <div class="dialog-body">
         <div class="dialog-field-row">
           <label class="dialog-label">Subscription Name:</label>
@@ -218,7 +230,10 @@
   <!-- Node Attributes Dialog -->
   <div id="attributes-overlay" class="dialog-overlay" style="display:none">
     <div class="dialog-box attributes-box">
-      <div class="dialog-title">Node Attributes — <span id="attributes-node-name"></span></div>
+      <div class="dialog-title">
+        <span class="dialog-title-text">Node Attributes — <span id="attributes-node-name"></span></span>
+        <button type="button" class="dialog-close-btn" onclick="hideNodeAttributes()" aria-label="Close">&times;</button>
+      </div>
       <div class="value-detail-meta"><span id="attributes-nodeid"></span></div>
       <div class="dialog-body">
         <table class="attributes-table">
@@ -237,7 +252,8 @@
   <div id="value-detail-overlay" class="dialog-overlay" style="display:none">
     <div class="dialog-box value-detail-box">
       <div class="dialog-title">
-        Array Viewer &mdash; <span id="value-detail-name"></span>
+        <span class="dialog-title-text">Array Viewer &mdash; <span id="value-detail-name"></span></span>
+        <button type="button" class="dialog-close-btn" onclick="hideValueDetail()" aria-label="Close">&times;</button>
       </div>
       <div class="value-detail-meta"><span id="value-detail-nodeid"></span></div>
       <div class="value-detail-body" id="value-detail-content"></div>
