@@ -1,7 +1,12 @@
-# OPC UA Web Client
+# OPC UA Web Client | Industrial OPC UA Browser | Read/Write & Subscription Tool
 
-An OPC UA Web Client based on Python (asyncua + FastAPI).
-This project is a web-based OPC UA client that supports most of the core features of the OPC UA protocol, including connection, browse, read, write, subscription ect... Its key highlight is the Index Range functionality for arrays, which is fully supported not only for scalar arrays but also for complex, custom-structured arrays defined by the UA server.
+OPC UA Web Client is an open-source web-based OPC UA client built with Python, FastAPI, and asyncua. It helps engineers connect to OPC UA servers, browse the OPC UA address space, read and write node values, and monitor real-time data through OPC UA subscriptions. This project supports common industrial automation workflows such as device diagnostics, process data monitoring, and remote OPC UA data access.
+
+It also provides advanced capabilities for complex OPC UA data, including array IndexRange subscription, multi-dimensional array handling, and structured/custom data type visualization and editing. If you are searching for an OPC UA browser, OPC UA monitor, OPC UA read write client, or a Python OPC UA example project, this repository is designed as a practical, production-oriented reference.
+
+## Keywords
+
+OPC UA, OPC UA Client, OPC UA Web Client, OPC UA Browser, OPC UA Subscription, OPC UA Read Write, OPC UA Address Space, OPC UA IndexRange, OPC UA Structured Data, OPC UA Custom DataType, Industrial Automation, SCADA Integration, Python OPC UA, asyncua, FastAPI, OPC TCP Client, Real-time Monitoring, IIoT Data Access, OPC UA Monitoring Mode, OPC UA Publishing Enabled
 
 ## Features
 
